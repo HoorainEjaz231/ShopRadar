@@ -1,29 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState ,useEffect} from 'react';
 import { View, TextInput, Button, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
+import { storage } from '../Firebase/config';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import network from '../network';
+import { categories ,markets } from "../constants";
+const categoryNames = categories.map(category => category.name);
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const categories = [
-  { label: 'Electronics', value: 'electronics' },
-  { label: 'Fashion', value: 'fashion' },
-  { label: 'Groceries', value: 'groceries' },
-  { label: 'Health & Beauty', value: 'health_beauty' },
-  { label: 'Home & Garden', value: 'home_garden' },
-  { label: 'Sports', value: 'sports' },
-  { label: 'Toys', value: 'toys' },
-  { label: 'Automotive', value: 'automotive' },
-  { label: 'Books', value: 'books' },
-  { label: 'Music', value: 'music' },
-];
+
+
 
 export default function AddProductScreen() {
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
-  const [image, setImage] = useState(null);
+ 
   const [discount, setDiscount] = useState('');
   const [description, setDescription] = useState('');
+  const [image, setImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [userdetail,setuser] = useState(null)
 
+
+  useEffect(()=>{
+    const UserInfo = async () => {
+  
+    try{
+      const UserData = await AsyncStorage.getItem('user')
+      const user = JSON.parse(UserData)
+      setuser(JSON.stringify(user.VendorID))
+    
+    }catch(error){
+      console.log(error)
+    }
+    }
+
+    UserInfo();
+  },[])
+  // Image Handler
   const selectImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -42,9 +58,68 @@ export default function AddProductScreen() {
     }
   };
 
-  const handleAddProduct = () => {
-    // Handle product addition logic here
-    console.log({ productName, category, price, image, discount, description });
+  const uploadImage = async () => {
+    setUploading(true);
+    const response = await fetch(image);
+    const blob = await response.blob();
+    const storageRef = ref(storage, `images/${Date.now()}`);
+    const uploadTask = uploadBytesResumable(storageRef, blob);
+  
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        console.log(
+          `Progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%`
+        );
+      },
+      (error) => {
+        console.error(error);
+        setUploading(false);
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          console.log('File available at', downloadURL);
+          handleAddProduct(downloadURL);
+          setUploading(false);
+        });
+      }
+    );
+  };
+
+  const handleAddProduct = async (url) => {
+    const productData = {
+      VendorID: userdetail,
+      ProductName: productName,
+      ProductCategory: category,
+      Price: price,
+      Image: url,
+      Discount: discount,
+      ProductDescription:description,
+    };
+
+
+    try {
+      const response = await fetch(network.serverurl+"/Product/", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
+      });
+      const data = await response.json();
+      console.log(data);
+      setCategory("")
+      setDescription("")
+      setDiscount("")
+      setImage(null)
+      setPrice("")
+      setProductName("")
+
+     
+
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -56,11 +131,12 @@ export default function AddProductScreen() {
         onChangeText={setProductName}
       />
       <RNPickerSelect
-        onValueChange={setCategory}
-        items={categories}
-        placeholder={{ label: 'Select a category', value: null }}
-        style={pickerSelectStyles}
-      />
+              onValueChange={(value) => setCategory(value)}
+              items={categoryNames.map((category) => ({ label: category, value: category }))}
+              placeholder={{label: 'Select Category',value:null}}
+              value={category}
+              style={pickerSelectStyles}
+            />
       <TextInput
         style={styles.input}
         placeholder="Price"
@@ -89,7 +165,7 @@ export default function AddProductScreen() {
         onChangeText={setDescription}
         multiline
       />
-      <Button title="Add Product" onPress={handleAddProduct} />
+      <Button title="Add Product" onPress={uploadImage} />
     </ScrollView>
   );
 }

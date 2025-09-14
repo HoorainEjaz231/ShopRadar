@@ -19,7 +19,10 @@ export default function CartIcon () {
                 <Text style={{ fontWeight: '800', color: '#FFFFFF',fontSize: 18,}}>{CartItem.length}</Text>
                 </View>
                 <Text style={{flex: 1,  textAlign: 'center',  fontWeight: '800', color: '#FFFFFF',  fontSize: 18, }}>View Cart</Text>
-                <Text style={{fontWeight: '800', color: '#FFFFFF',   fontSize: 18,}}>{CartTotal}</Text>
+                <View style={{flexDirection:'row'}}>
+                  <Text style={{fontWeight: '600', color: '#FFFFFF',   fontSize: 15,textAlignVertical:'bottom'}}>RS  </Text>
+                <Text style={{fontWeight: '800', color: '#FFFFFF',   fontSize: 18,}}>{parseInt(CartTotal)}</Text>
+                </View>
             </TouchableOpacity>
     </View>
     )

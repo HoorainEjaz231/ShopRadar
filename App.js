@@ -1,22 +1,26 @@
-import React from "react";
-
+import React,{useState,useEffect} from "react";
 import { Provider } from "react-redux";
-import { View, Text } from "react-native";
-
-
-
-
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Home } from "react-native-feather";
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { store } from "./store";
-import NavScreen from "../Shop-Radar/NavScreen";
+import { NavigationContainer } from "@react-navigation/native";
 import DrawerNav from "./Drawer";
-export default function App() {
+import Login from "./AuthScreens/Login";
+import SignUp from "./AuthScreens/SignUp";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
+
+export default function App() {
+  const Stack = createNativeStackNavigator();
   return (
-    <Provider store={store    }>
-      {/* <NavScreen /> */}
-      <DrawerNav />
+    <Provider store={store}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="SignUp" component={SignUp}/>
+          <Stack.Screen name="DrawerNav" component={DrawerNav} />
+        </Stack.Navigator>
+      </NavigationContainer>
     </Provider>
   );
 }

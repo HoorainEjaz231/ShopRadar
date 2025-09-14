@@ -6,7 +6,7 @@ export default function OrderPreparing () {
     const navigation = useNavigation();
     useEffect(()=>{
         setTimeout(()=>{
-            navigation.navigate('Delivery')
+            navigation.replace('Delivery')
         },3000)
     },[])
     return(
