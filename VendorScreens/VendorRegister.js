@@ -1,15 +1,14 @@
 import React,{useState,useEffect} from 'react'
-import {View,Text,StyleSheet,TextInput,Button,TouchableOpacity,Image} from 'react-native'
+import {View,Text,StyleSheet,TextInput,TouchableOpacity,Image,ScrollView} from 'react-native'
 import { useNavigation } from '@react-navigation/native';
 import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
-import network from '../network';
-import { storage } from '../Firebase/config';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storageApi, vendorsApi, customersApi } from '../lib/api';
 import SelectImage from '../components/selectImage';
-import UploadImage from '../components/uploadimage';
 import { categories ,markets } from "../constants";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { Card, Button } from '../components/ui';
 
 export default function VendorRegister ({ route, navigation }){
   const { CustomerID } = route.params;
@@ -29,8 +28,8 @@ export default function VendorRegister ({ route, navigation }){
 
    const categoryNames = categories.map(category => category.name);
     const MarketNames = markets.map(MARKET => MARKET.name);
-    
-  
+
+
     const handleAddMain = async (downloadURL) => {
       const productData = {
         BusinessName: BuninessName,
@@ -46,24 +45,13 @@ export default function VendorRegister ({ route, navigation }){
         ShopCategory: category,
         Image:downloadURL
       };
-  
+
       try {
-        const response = await fetch(network.serverurl+"/vendor/", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(productData),
-        });
-        const data = await response.json();
+        const data = await vendorsApi.createVendor(productData);
         console.log(data);
         if(data){
           try {
-            const response = await fetch(`${network.serverurl}/Customer/${CustomerID}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ VendorID: data.VendorID }),
-            });
+            await customersApi.updateCustomer(CustomerID, { VendorID: data.VendorID });
           } catch (error) {
             console.error(error);
           }
@@ -89,82 +77,98 @@ export default function VendorRegister ({ route, navigation }){
           }
 
         }
-        
-        
+
+
 
 
         navigation.navigate('HomeScreen')
-  
-       
-  
+
+
+
       } catch (error) {
         console.error(error);
       }
     };
-   
 
-    const handleImage = () => {
+
+    const handleImage = async () => {
       if (image) {
-       
-        UploadImage(image, setUploading, handleAddMain);
+        setUploading(true);
+        try {
+          const url = await storageApi.uploadImage(image, 'vendors');
+          await handleAddMain(url);
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setUploading(false);
+        }
       } else {
         console.log("plz select image first")
       }
     };
 
    return(
-    <View style={styles.container}>
-    <View style={styles.companyInfoContainer}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Card style={styles.companyInfoContainer}>
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Business Name"
+        placeholderTextColor={colors.textGray}
         onChangeText={setBusinessName}
       />
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Company Address"
+        placeholderTextColor={colors.textGray}
         onChangeText={setCompanyAddress}
       />
       <View style={styles.inlineInputs}>
         <TextInput
-          style={[styles.input, styles.inlineInput]}
+          style={[typography.body, styles.input, styles.inlineInput]}
           placeholder="City"
+          placeholderTextColor={colors.textGray}
           onChangeText={setCity}
         />
         <TextInput
-          style={[styles.input, styles.inlineInput]}
+          style={[typography.body, styles.input, styles.inlineInput]}
           placeholder="State/Province"
+          placeholderTextColor={colors.textGray}
           onChangeText={setState}
         />
         <TextInput
-          style={[styles.input, styles.inlineInput]}
+          style={[typography.body, styles.input, styles.inlineInput]}
           placeholder="Country"
+          placeholderTextColor={colors.textGray}
           onChangeText={setCountry}
         />
       </View>
-      
+
       <View style={styles.inlineInputs}>
-        
+
         <TextInput
-          style={[styles.input, styles.inlineInput]}
+          style={[typography.body, styles.input, styles.inlineInput]}
           placeholder="Latitude"
+          placeholderTextColor={colors.textGray}
           onChangeText={setLatitude}
         />
         <TextInput
-          style={[styles.input, styles.inlineInput]}
+          style={[typography.body, styles.input, styles.inlineInput]}
           placeholder="Longitude"
+          placeholderTextColor={colors.textGray}
           onChangeText={setLongitude}
         />
-        
+
       </View>
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Contact"
+        placeholderTextColor={colors.textGray}
         onChangeText={setContact}
       />
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Email"
+        placeholderTextColor={colors.textGray}
         onChangeText={setEmail}
       />
       <RNPickerSelect
@@ -182,107 +186,85 @@ export default function VendorRegister ({ route, navigation }){
               style={pickerSelectStyles}
             />
       <SelectImage image={image} setImage={setimage} />
-    </View>
-   
-    
+    </Card>
+
+
     {/* Add other sections of the form here */}
-   
+
     <Button title="Register" onPress={handleImage} />
-  </View>
+  </ScrollView>
    )
 }
 
 const styles = StyleSheet.create({
     container: {
       flex: 1,
-      paddingHorizontal: 20,
-      paddingTop: 40,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: colors.background,
+    },
+    content: {
+      paddingHorizontal: spacing.space5,
+      paddingTop: spacing.space8,
+      paddingBottom: spacing.space8,
     },
     companyInfoContainer: {
-      backgroundColor: '#FFFFFF',
-      padding: 20,
-      borderRadius: 20,
-      marginBottom: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 5,
+      marginBottom: spacing.space5,
     },
     input: {
-      height: 40,
-      borderColor: '#CCCCCC',
+      height: spacing.touchTarget,
+      borderColor: colors.white,
       borderWidth: 1,
-      borderRadius: 5,
-      marginBottom: 10,
-      paddingHorizontal: 10,
+      borderRadius: radius.pill,
+      backgroundColor: colors.backgroundFaf,
+      marginBottom: spacing.space3,
+      paddingHorizontal: spacing.space4,
+      color: colors.textPrimary,
     },
     inlineInputs: {
       flexDirection: 'row',
       justifyContent: 'space-between',
+      gap: spacing.space2,
     },
     inlineInput: {
       flex: 1,
-      marginRight: 5,
     },
     imageContainer: {
       alignItems: 'center',
-      marginVertical: 10,
-      padding: 10,
-      borderColor: '#CCCCCC',
+      marginVertical: spacing.space3,
+      padding: spacing.space3,
+      borderColor: colors.white,
       borderWidth: 1,
-      borderRadius: 5,
+      borderRadius: radius.md,
     },
     image: {
       width: 100,
       height: 100,
     },
-   
+
   });
 
-  // const pickerSelectStyles = StyleSheet.create({
-  //   inputIOS: {
-  //     height: 40,
-  //     borderColor: '#CCCCCC',
-  //     borderWidth: 1,
-  //     borderRadius: 5,
-  //     paddingHorizontal: 10,
-  //     marginBottom: 10,
-  //     color: '#333333',
-  //   },
-  //   inputAndroid: {
-  //     height: 40,
-  //     borderColor: '#CCCCCC',
-  //     borderWidth: 1,
-  //     borderRadius: 5,
-  //     paddingHorizontal: 10,
-  //     marginBottom: 10,
-  //     color: '#333333',
-  //   },
-  // });
   const pickerSelectStyles = StyleSheet.create({
     inputIOS: {
-      fontSize: 16,
-      paddingVertical: 12,
-      paddingHorizontal: 10,
+      fontSize: 14,
+      paddingVertical: spacing.space3,
+      paddingHorizontal: spacing.space4,
       borderWidth: 1,
-      borderColor: 'gray',
-      borderRadius: 4,
-      color: 'black',
-      paddingRight: 30, // to ensure the text is never behind the icon
-      marginBottom: 20,
+      borderColor: colors.white,
+      borderRadius: radius.pill,
+      color: colors.textPrimary,
+      backgroundColor: colors.backgroundFaf,
+      paddingRight: 30,
+      marginBottom: spacing.space3,
     },
     inputAndroid: {
-      fontSize: 16,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderWidth: 0.5,
-      borderColor: 'purple',
-      borderRadius: 8,
-      color: 'black',
-      paddingRight: 30, // to ensure the text is never behind the icon
-      marginBottom: 20,
+      fontSize: 14,
+      paddingHorizontal: spacing.space4,
+      paddingVertical: spacing.space2,
+      borderWidth: 1,
+      borderColor: colors.white,
+      borderRadius: radius.pill,
+      color: colors.textPrimary,
+      backgroundColor: colors.backgroundFaf,
+      paddingRight: 30,
+      marginBottom: spacing.space3,
     },
   });
-  

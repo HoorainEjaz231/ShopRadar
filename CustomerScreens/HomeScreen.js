@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, View, TextInput, ScrollView, Text, StyleSheet, TouchableOpacity, RefreshControl, Modal, Button } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import * as Icon from 'react-native-feather';
-import { themeColors } from '../theme';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Button, IconContainer } from '../components/ui';
 import Categories from '../CustomerComponent/categories';
 import FeaturedRow from '../CustomerComponent/featuredRow';
-import axios from 'axios';
-import network from "../network";
+import { ordersApi, vendorsApi } from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PendingOrders from '../CustomerComponent/PendingOrderIcon';
 import { useNavigation } from '@react-navigation/native';
@@ -27,9 +27,9 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    
+
     if (customerId) {
-      
+
       fetchPendingOrders();
     }
   }, [customerId]);
@@ -51,21 +51,12 @@ export default function HomeScreen() {
   // Fetch pending orders
   const fetchPendingOrders = async () => {
     try {
-    
-        
-      const response = await axios.get(`${network.serverurl}/orders/customer/${customerId.CustomerID}`);
-      if(response.data){
-        setPendingOrdersCount(response.data.length);
-        console.log(response.data)
-      }else{
-        setPendingOrdersCount(0)
-        
-      }
+      const orders = await ordersApi.getActiveOrdersForCustomer(customerId.CustomerID);
+      setPendingOrdersCount(orders ? orders.length : 0);
     } catch (error) {
-    
         console.log('No orders Fetched');
         setPendingOrdersCount(0)
-      
+
     }
   };
 
@@ -78,8 +69,8 @@ export default function HomeScreen() {
   // Fetch vendors
   const fetchVendors = async () => {
     try {
-      const response = await axios.get(network.serverurl + "/vendor/vendors");
-      setVendors(response.data);
+      const data = await vendorsApi.getVendors();
+      setVendors(data);
     } catch (error) {
       console.error(error);
     }
@@ -128,37 +119,34 @@ export default function HomeScreen() {
   }, {});
 
   return (
-    <SafeAreaView style={{ backgroundColor: 'white' ,flex: 1 }}>
-       <StatusBar
-        barStyle="dark-content" // Change to 'light-content' if you want light text
-        backgroundColor={themeColors.bgColor(1)} // Set the background color if needed
+    <View style={styles.screen}>
+      <GlassHeader
+        title="ShopRadar"
+        showBack={false}
+        bottomSlot={
+          <View style={styles.searchRow}>
+            <TouchableOpacity style={styles.searchPill} onPress={() => navigation.navigate('SearchScreen')}>
+              <Icon.Search height={20} width={20} stroke={colors.textGray} />
+              <Text style={[typography.bodySm, styles.searchPlaceholder]}>Search</Text>
+              <View style={styles.marketBadge}>
+                <Icon.MapPin height={16} width={16} stroke={colors.textGray} />
+                <Text style={[typography.label, styles.marketText]}>
+                  {selectedMarket && selectedMarket.length > 8
+                    ? `${selectedMarket.substring(0, 8)}...`
+                    : selectedMarket || 'All Lahore'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <IconContainer variant="header" onPress={() => setModalVisible(true)} style={styles.filterButton}>
+              <Icon.Sliders height={20} width={20} strokeWidth={2.5} stroke={colors.textPrimary} />
+            </IconContainer>
+          </View>
+        }
       />
-      
-      <View style={stylehome.container}>
-        <TouchableOpacity style={stylehome.style1} onPress={() => navigation.navigate('SearchScreen')}>
-          <View style={{ flexDirection: 'row', flex: 1, }}>
-            <Icon.Search height="24" width="24" stroke="grey" />
-            <Text style={{ marginLeft: 8, flex: 1, textAlignVertical: 'center', color: 'gray' }}>Search</Text>
-            <View style={stylehome.style2}>
-              <Icon.MapPin height="20" width="20" stroke="gray" />
-              <Text style={{ color: '#718096' }}>
-                {selectedMarket && selectedMarket.length > 8 
-                  ? `${selectedMarket.substring(0, 8)}...` 
-               : selectedMarket || 'All Lahore'}
-               </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <View style={{ backgroundColor: themeColors.bgColor(1), padding: 12, borderRadius: 9999, marginLeft: 5 }}>
-            <Icon.Sliders height="20" width="20" strokeWidth={2.5} stroke="white" />
-          </View>
-        </TouchableOpacity>
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }} // Adjusted paddingBottom to ensure space for the fixed element
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -167,7 +155,7 @@ export default function HomeScreen() {
         }
       >
         <Categories />
-        <View style={{ marginTop: 20, marginBottom: 20 }}>
+        <View style={styles.rowsSection}>
           {Object.keys(groupedVendors).map((category, index) => (
             <FeaturedRow
               key={index}
@@ -179,15 +167,13 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-     
-
       {/* Filter Modal */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Filters</Text>
+            <Text style={[typography.headerTitle, styles.modalTitle]}>Filters</Text>
 
-            <Text style={styles.label}>Market</Text>
+            <Text style={[typography.label, styles.label]}>Market</Text>
             <RNPickerSelect
               onValueChange={(value) => setSelectedMarket(value)}
               items={MarketNames.map((market) => ({ label: market, value: market }))}
@@ -195,7 +181,7 @@ export default function HomeScreen() {
               style={pickerSelectStyles}
             />
 
-            <Text style={styles.label}>Category</Text>
+            <Text style={[typography.label, styles.label]}>Category</Text>
             <RNPickerSelect
               onValueChange={(value) => setSelectedCategory(value)}
               items={categoryNames.map((category) => ({ label: category, value: category }))}
@@ -203,143 +189,134 @@ export default function HomeScreen() {
               style={pickerSelectStyles}
             />
 
-            <View style={styles.buttonsContainer}>
-              <TouchableOpacity style={styles.button} onPress={applyFilters}>
-                <Text style={styles.buttonText}>Apply Filters</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearFilters}>
-                <Text style={[styles.buttonText, { color: 'red' }]}>Clear Filters</Text>
-              </TouchableOpacity>
+            <View style={styles.buttonsRow}>
+              <Button variant="secondary" title="Clear Filters" onPress={clearFilters} style={styles.filterActionButton} />
+              <Button title="Apply Filters" onPress={applyFilters} style={styles.filterActionButton} />
             </View>
 
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.closeButton}>Close</Text>
+              <Text style={[typography.bodySm, styles.closeButton]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
        {/* Pending Orders fixed at the bottom */}
        {pendingOrdersCount > 0 && (
-        
+
           <PendingOrders pendingOrdersCount={pendingOrdersCount} />
-       
+
       )}
-     
-    </SafeAreaView>
+
+    </View>
   );
 }
 
-const stylehome = StyleSheet.create({
-  container: {
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingTop: spacing.headerHeight + spacing.space8 + spacing.space6,
+    paddingBottom: 100,
+  },
+  rowsSection: {
+    marginTop: spacing.space5,
+    marginBottom: spacing.space5,
+  },
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 10,
-    paddingRight: 5,
-    paddingBottom: 8,
-    marginRight: 5,
-    marginTop: 10
   },
-  style1: {
+  searchPill: {
     flexDirection: 'row',
     flex: 1,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
   },
-  style2: {
+  searchPlaceholder: {
+    marginLeft: spacing.space2,
+    flex: 1,
+    color: colors.textGray,
+  },
+  marketBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 0,
-    paddingLeft: 8,
-    borderLeftWidth: 2,
-    borderLeftColor: '#D1D5DB',
+    paddingLeft: spacing.space2,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.backgroundFaf,
   },
-});
-
-const styles = StyleSheet.create({
-  pendingOrdersContainer: {
-    position: 'absolute',
-
-    bottom: 0, // Adjust this value as needed
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+  marketText: {
+    color: colors.textGray,
+    marginLeft: spacing.space1,
+  },
+  filterButton: {
+    marginLeft: spacing.space2,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: spacing.space5,
   },
   modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
+    backgroundColor: colors.white,
+    padding: spacing.space6,
+    borderRadius: radius.xl,
+    width: '100%',
+    ...shadows.modal,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: spacing.space5,
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   label: {
-    fontSize: 16,
-    marginBottom: 10,
+    color: colors.textGray,
+    marginBottom: spacing.space2,
   },
-  buttonsContainer: {
+  buttonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
+    gap: spacing.space3,
+    marginTop: spacing.space4,
   },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 5,
+  filterActionButton: {
     flex: 1,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  clearButton: {
-    backgroundColor: 'transparent',
-    borderColor: 'red',
-    borderWidth: 1,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
   },
   closeButton: {
     textAlign: 'center',
-    color: '#007BFF',
-    fontSize: 16,
-    marginTop: 20,
+    color: colors.primary,
+    marginTop: spacing.space5,
   },
 });
 
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    fontSize: 14,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
     borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 4,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
-    marginBottom: 20,
+    borderColor: colors.white,
+    borderRadius: radius.pill,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
+    paddingRight: 30,
+    marginBottom: spacing.space4,
   },
   inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'purple',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
-    marginBottom: 20,
+    fontSize: 14,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space2,
+    borderWidth: 1,
+    borderColor: colors.white,
+    borderRadius: radius.pill,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
+    paddingRight: 30,
+    marginBottom: spacing.space4,
   },
 });

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import axios from 'axios';
-import { themeColors } from '../theme'; // Assuming you have themeColors for consistent styling
-import network from '../network';
+import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
+import { customersApi } from '../lib/api';
+import { colors, radius, spacing, typography } from '../theme';
+import { Card, Button, ModalAlert } from '../components/ui';
 
 const EditCustomer = ({ route, navigation }) => {
   const { customer } = route.params; // Fetch the customer data from route params
@@ -14,11 +14,7 @@ const EditCustomer = ({ route, navigation }) => {
   const [city, setCity] = useState('');
   const [stateProvince, setStateProvince] = useState('');
   const [country, setCountry] = useState('');
-
-  const [vendorName, setVendorName] = useState('');
-  const [vendorMarket, setVendorMarket] = useState('');
-  const [riderName, setRiderName] = useState('');
-  const [riderBikeNumber, setRiderBikeNumber] = useState('');
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
 
   // Initialize form fields with customer data when component mounts
   useEffect(() => {
@@ -31,9 +27,11 @@ const EditCustomer = ({ route, navigation }) => {
       setStateProvince(customer.StateProvince || '');
       setCountry(customer.Country || '');
 
-     
+
     }
   }, [customer]);
+
+  const closeAlert = () => setAlert((a) => ({ ...a, visible: false }));
 
   // Save updated customer details
   const saveCustomer = async () => {
@@ -46,74 +44,94 @@ const EditCustomer = ({ route, navigation }) => {
         City: city,
         StateProvince: stateProvince,
         Country: country,
-      
+
       };
 
       // Send updated data to backend
-      await axios.put(`${network.serverurl}/Customer/update/${customer.CustomerID}`, updatedCustomer);
+      await customersApi.updateCustomer(customer.CustomerID, updatedCustomer);
 
-      Alert.alert('Success', 'Customer updated successfully');
-      navigation.goBack(); // Go back to the previous screen
+      setAlert({
+        visible: true,
+        title: 'Success',
+        message: 'Customer updated successfully',
+        onConfirm: () => {
+          closeAlert();
+          navigation.goBack();
+        },
+      });
     } catch (error) {
       console.error('Failed to update customer:', error);
-      Alert.alert('Error', 'Failed to update customer');
+      setAlert({ visible: true, title: 'Error', message: 'Failed to update customer', onConfirm: closeAlert });
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Edit Customer</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={[typography.display, styles.title]}>Edit Customer</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={fullName}
-        onChangeText={setFullName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Phone"
-        value={phone}
-        onChangeText={setPhone}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Address"
-        value={address}
-        onChangeText={setAddress}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="City"
-        value={city}
-        onChangeText={setCity}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="State/Province"
-        value={stateProvince}
-        onChangeText={setStateProvince}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Country"
-        value={country}
-        onChangeText={setCountry}
-      />
-      <TouchableOpacity style={styles.saveButton} onPress={saveCustomer}>
-        <Text style={styles.buttonText}>Save Changes</Text>
-      </TouchableOpacity>
+      <Card style={styles.formCard}>
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Full Name"
+          placeholderTextColor={colors.textGray}
+          value={fullName}
+          onChangeText={setFullName}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Email"
+          placeholderTextColor={colors.textGray}
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Phone"
+          placeholderTextColor={colors.textGray}
+          value={phone}
+          onChangeText={setPhone}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Address"
+          placeholderTextColor={colors.textGray}
+          value={address}
+          onChangeText={setAddress}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="City"
+          placeholderTextColor={colors.textGray}
+          value={city}
+          onChangeText={setCity}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="State/Province"
+          placeholderTextColor={colors.textGray}
+          value={stateProvince}
+          onChangeText={setStateProvince}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Country"
+          placeholderTextColor={colors.textGray}
+          value={country}
+          onChangeText={setCountry}
+        />
+        <Button title="Save Changes" onPress={saveCustomer} style={styles.button} />
+        <Button variant="secondary" title="Cancel" onPress={() => navigation.goBack()} style={styles.button} />
+      </Card>
 
-      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
+      <ModalAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        confirmLabel="OK"
+        onConfirm={alert.onConfirm}
+        onRequestClose={closeAlert}
+      />
+    </ScrollView>
   );
 };
 
@@ -122,48 +140,29 @@ export default EditCustomer;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: themeColors.bgColor(0.1),
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.space5,
+    paddingTop: spacing.space8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: themeColors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.space5,
   },
-  subTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: themeColors.primary,
-    marginVertical: 10,
-  },
+  formCard: {},
   input: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    fontSize: 16,
+    backgroundColor: colors.backgroundFaf,
+    height: spacing.touchTarget,
+    paddingHorizontal: spacing.space4,
+    borderRadius: radius.pill,
+    marginBottom: spacing.space3,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: colors.white,
+    color: colors.textPrimary,
   },
-  saveButton: {
-    backgroundColor: themeColors.primary,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  cancelButton: {
-    backgroundColor: 'gray',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  button: {
+    marginTop: spacing.space2,
   },
 });

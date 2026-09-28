@@ -1,6 +1,7 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet ,Image,Alert} from 'react-native';
-import { themeColors } from "../theme";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { colors, radius, spacing, typography, shadows } from "../theme";
+import { IconContainer, ModalAlert } from "../components/ui";
 import * as Icon from "react-native-feather";
 import { useDispatch, useSelector } from "react-redux";
 import { RemoveFromCart, addToCart, selectCartItemsById,selectCartItems, EmptyCart } from "../slices/CartSlices";
@@ -11,28 +12,12 @@ export default function ProductRow({ item }) {
   const totalItems = useSelector(state => selectCartItemsById(state, item.ProductID));
   const itemQuantity = totalItems.length > 0 ? totalItems[0].quantity : 0;
   const cartItems = useSelector(selectCartItems);
-const navigation = useNavigation()
+  const navigation = useNavigation()
+  const [vendorConflictVisible, setVendorConflictVisible] = useState(false);
+
   const handleIncrease = () => {
     if (cartItems.length > 0 && cartItems[0].VendorID !== item.VendorID) {
-      Alert.alert(
-        "Different Vendor",
-        "You already have items from a different vendor in your cart. Would you like to clear the cart and add this item?",
-        [
-          {
-            text: "Go Back",
-            onPress: () => navigation.goBack(),
-            style: "cancel"
-          },
-          {
-            text: "Clear Cart",
-            onPress: () => {
-              dispatch(EmptyCart())
-              dispatch(addToCart({ ...item }));
-            }
-          }
-        ],
-        { cancelable: false }
-      );
+      setVendorConflictVisible(true);
     } else {
       dispatch(addToCart({ ...item }));
     }
@@ -45,37 +30,50 @@ const navigation = useNavigation()
 
   return (
     <View style={styles.container}>
-      <Image 
-        source={{ uri: item.Image }} 
-        style={styles.productImage} 
+      <Image
+        source={{ uri: item.Image }}
+        style={styles.productImage}
       />
-      <View style={{ marginBottom: 12, flex: 1 }}>
-        <View style={{ paddingLeft: 12 }}>
-          <Text style={{ fontSize: 20 }}>{item.ProductName}</Text>
-          <Text style={{ color: '#374151' }}>{item.ProductDescription && item.ProductDescription.length > 65 
-                  ? `${item.ProductDescription.substring(0, 65)}...` 
+      <View style={styles.info}>
+        <View style={styles.textBlock}>
+          <Text style={[typography.cardTitle, styles.name]}>{item.ProductName}</Text>
+          <Text style={[typography.bodySm, styles.description]}>{item.ProductDescription && item.ProductDescription.length > 65
+                  ? `${item.ProductDescription.substring(0, 65)}...`
                : item.ProductDescription }</Text>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 12, alignItems: 'center' }}>
-          <Text style={{ color: '#374151', fontSize: 18, fontWeight: 'bold' }}>Rs {item.Price}</Text>
+        <View style={styles.actionsRow}>
+          <Text style={[typography.cardTitle, styles.price]}>Rs {item.Price}</Text>
           {
-            itemQuantity === 0 ? null : <TouchableOpacity
-              disabled={itemQuantity === 0}
-              onPress={handleDecrease}
-              style={{ backgroundColor: themeColors.bgColor(1), padding: 4, borderRadius: 9999 }}
-            >
-              <Icon.Minus strokeWidth={2} height={20} width={20} stroke={'white'} />
-            </TouchableOpacity>
+            itemQuantity === 0 ? null : (
+              <IconContainer variant="forward" onPress={handleDecrease} style={styles.stepperButton}>
+                <Icon.Minus strokeWidth={2} height={16} width={16} stroke={colors.white} />
+              </IconContainer>
+            )
           }
-          <Text>{itemQuantity}</Text>
-          <TouchableOpacity
-            onPress={handleIncrease}
-            style={{ backgroundColor: themeColors.bgColor(1), padding: 4, borderRadius: 9999 }}
-          >
-            <Icon.Plus strokeWidth={2} height={20} width={20} stroke={'white'} />
-          </TouchableOpacity>
+          <Text style={typography.body}>{itemQuantity}</Text>
+          <IconContainer variant="forward" onPress={handleIncrease} style={styles.stepperButton}>
+            <Icon.Plus strokeWidth={2} height={16} width={16} stroke={colors.white} />
+          </IconContainer>
         </View>
       </View>
+
+      <ModalAlert
+        visible={vendorConflictVisible}
+        title="Different Vendor"
+        message="You already have items from a different vendor in your cart. Would you like to clear the cart and add this item?"
+        cancelLabel="Go Back"
+        onCancel={() => {
+          setVendorConflictVisible(false);
+          navigation.goBack();
+        }}
+        confirmLabel="Clear Cart"
+        onConfirm={() => {
+          setVendorConflictVisible(false);
+          dispatch(EmptyCart());
+          dispatch(addToCart({ ...item }));
+        }}
+        onRequestClose={() => setVendorConflictVisible(false)}
+      />
     </View>
   );
 }
@@ -84,21 +82,45 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-    marginBottom: 12,
-    marginHorizontal: 8,
-
+    backgroundColor: colors.backgroundFaf,
+    borderWidth: 1,
+    borderColor: colors.white,
+    padding: spacing.space3,
+    borderRadius: radius.lg,
+    marginBottom: spacing.space3,
+    marginHorizontal: spacing.space2,
+    ...shadows.card,
   },
   productImage: {
     width: 90,
     height: 90,
-    borderRadius: 12,
+    borderRadius: radius.md,
+  },
+  info: {
+    marginBottom: spacing.space3,
+    flex: 1,
+  },
+  textBlock: {
+    paddingLeft: spacing.space3,
+  },
+  name: {
+    color: colors.textPrimary,
+  },
+  description: {
+    color: colors.textLight,
+    marginTop: spacing.space1,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingLeft: spacing.space3,
+    alignItems: 'center',
+    marginTop: spacing.space2,
+  },
+  price: {
+    color: colors.textPrimary,
+  },
+  stepperButton: {
+    backgroundColor: colors.primary,
   },
 });

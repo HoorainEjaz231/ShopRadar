@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import axios from 'axios';
-import network from '../network';
+import { orderDetailsApi, productsApi, ordersApi } from '../lib/api';
+import { colors, spacing, typography } from '../theme';
+import { Card, Button } from '../components/ui';
 
 export default function OrderPickup() {
   const navigation = useNavigation();
@@ -17,15 +18,14 @@ export default function OrderPickup() {
 
   const fetchOrderDetails = async () => {
     try {
-      const response = await axios.get(`${network.serverurl}/orderdetails/${OrderID}/details`);
-      const orderDetailsData = response.data;
-      
+      const orderDetailsData = await orderDetailsApi.getOrderDetails(OrderID);
+
       const enrichedOrderDetails = await Promise.all(orderDetailsData.map(async (detail) => {
-        const products = JSON.parse(detail.ProductDetails).products;
+        const products = detail.ProductDetails.products;
         const enrichedProducts = await Promise.all(products.map(async (product) => {
           try {
-            const productResponse = await axios.get(`${network.serverurl}/Product/Products/${product.ProductID}`);
-            return { ...product, ProductName: productResponse.data.ProductName };
+            const productData = await productsApi.getProductById(product.ProductID);
+            return { ...product, ProductName: productData.ProductName };
           } catch (error) {
             console.error(`Failed to fetch product name for ProductID: ${product.ProductID}`, error);
             return { ...product, ProductName: `Product ID: ${product.ProductID}` }; // Fallback to ProductID if name fetch fails
@@ -46,11 +46,9 @@ export default function OrderPickup() {
   };
 
   const handlePickup = async () => {
-    
+
     try {
-      await axios.put(`${network.serverurl}/orders/${OrderID}`, {
-        OrderStatus: 'PickedUp'
-      });
+      await ordersApi.updateOrder(OrderID, { OrderStatus: 'PickedUp' });
       navigation.navigate('RiderCustNav', { OrderID });
     } catch (error) {
       console.error('Failed to update order status:', error);
@@ -59,6 +57,7 @@ export default function OrderPickup() {
 
   return (
     <ScrollView
+      style={styles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -66,82 +65,60 @@ export default function OrderPickup() {
     >
       {orderDetails.length > 0 ? (
         orderDetails.map(detail => (
-          <View key={detail.OrderDetailID} style={styles.orderDetailContainer}>
-            <Text style={styles.orderDetailHeader}>Order ID: {detail.OrderDetailID}</Text>
+          <Card key={detail.OrderDetailID} style={styles.orderDetailContainer}>
+            <Text style={[typography.cardTitle, styles.orderDetailHeader]}>Order ID: {detail.OrderDetailID}</Text>
             {detail.products.map((product, index) => (
               <View key={index} style={styles.productDetail}>
-                <Text style={styles.productName}>{product.ProductName}</Text>
-                <Text style={styles.detailText}>Quantity: {product.Quantity}</Text>
-                <Text style={styles.detailText}>Price: ${product.Price.toFixed(2)}</Text>
+                <Text style={[typography.body, styles.productName]}>{product.ProductName}</Text>
+                <Text style={[typography.bodySm, styles.detailText]}>Quantity: {product.Quantity}</Text>
+                <Text style={[typography.bodySm, styles.detailText]}>Price: ${product.Price.toFixed(2)}</Text>
               </View>
             ))}
-          </View>
+          </Card>
         ))
       ) : (
-        <Text style={styles.noDetailsText}>No order details available</Text>
+        <Text style={[typography.bodySm, styles.noDetailsText]}>No order details available</Text>
       )}
-      <TouchableOpacity style={styles.button} onPress={handlePickup}>
-        <Text style={styles.buttonText}>Mark as Picked Up</Text>
-      </TouchableOpacity>
+      <Button title="Mark as Picked Up" onPress={handlePickup} style={styles.button} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+  },
   container: {
     flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#F5F5F5', // Slightly grey background for better contrast
+    padding: spacing.space5,
+    paddingTop: spacing.space8,
   },
   orderDetailContainer: {
-    backgroundColor: '#FFFFFF', // White background for each order detail box
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2, // For Android shadow
+    marginBottom: spacing.space4,
   },
   orderDetailHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333333',
+    marginBottom: spacing.space3,
+    color: colors.textPrimary,
   },
   productDetail: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    paddingBottom: 10,
-    marginBottom: 10,
+    borderBottomColor: colors.backgroundFaf,
+    paddingBottom: spacing.space3,
+    marginBottom: spacing.space3,
   },
   productName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-    color: '#333333',
+    marginBottom: spacing.space1,
+    color: colors.textPrimary,
   },
   detailText: {
-    fontSize: 14,
-    color: '#555555',
+    color: colors.textGray,
   },
   noDetailsText: {
-    fontSize: 16,
     textAlign: 'center',
-    color: '#777777',
-    marginTop: 20,
+    color: colors.textGray,
+    marginTop: spacing.space5,
   },
   button: {
-    backgroundColor: '#28A745',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: spacing.space5,
   },
 });

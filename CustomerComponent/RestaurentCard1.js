@@ -1,28 +1,28 @@
 import React from 'react';
-import { View, Text, Image, TouchableWithoutFeedback ,StyleSheet} from 'react-native';
+import { View, Text, Image, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Icon from 'react-native-feather';
-import { themeColors } from '../theme';
+import { colors, radius, spacing, typography, shadows } from '../theme';
 
 export default function RestaurentCard1({ item }) {
   const navigation = useNavigation();
   return (
     <TouchableWithoutFeedback onPress={() => navigation.navigate('ShopScreen', { ...item })}>
       <View style={styles.container}>
-        <Image style={{ height: 144, width: 256, borderTopLeftRadius: 25, borderTopRightRadius: 25 }} source={{ uri:item.Image}} />
-        <View style={{ paddingHorizontal: 12, paddingBottom: 16, marginVertical: 5 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', paddingTop: 5 }}>{item.BusinessName}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 4 }}>
-            <Image style={{ height: 16, width: 16 }} source={require("../assets/star-icon-19125.png")} />
-            <Text style={{ fontSize: 10 }}>
-              <Text style={{ color: '#047857' }}>{item.AverageRating}</Text>
-              <Text style={{ color: '#4B5563' }}> ({item.RatingCount}) Reviews</Text>
-              <Text style={{ fontWeight: '600' }}> · {item.ShopCategory}</Text>
+        <Image style={styles.image} source={{ uri:item.Image}} />
+        <View style={styles.content}>
+          <Text style={[typography.cardTitle, styles.name]}>{item.BusinessName}</Text>
+          <View style={styles.row}>
+            <Image style={styles.starIcon} source={require("../assets/star-icon-19125.png")} />
+            <Text style={typography.caption}>
+              <Text style={styles.rating}>{item.AverageRating}</Text>
+              <Text style={styles.reviews}> ({item.RatingCount}) Reviews</Text>
+              <Text style={styles.category}> · {item.ShopCategory}</Text>
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 4 }}>
-            <Icon.MapPin color="gray" width="15" height="15" />
-            <Text style={{ color: '#4B5563', fontSize: 13 }}> {item.Market}</Text>
+          <View style={styles.row}>
+            <Icon.MapPin color={colors.textGray} width={15} height={15} />
+            <Text style={[typography.label, styles.market]}> {item.Market}</Text>
           </View>
         </View>
       </View>
@@ -32,18 +32,49 @@ export default function RestaurentCard1({ item }) {
 
 
 const styles = StyleSheet.create({
-    container: {
-      marginRight: 24,
-      marginBottom:10,            // mr-6 (assuming 4 pixels per unit)
-      backgroundColor: '#FFFFFF', // bg-white
-      borderRadius: 25,           // rounded-3xl (assuming 12 pixels per unit)
-      shadowColor: '#000000',     // shadow-lg
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
-      elevation: 8,
-    },
-  });
+  container: {
+    marginRight: spacing.space6,
+    marginBottom: spacing.space3,
+    backgroundColor: colors.backgroundFaf,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.white,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  image: {
+    height: 144,
+    width: 256,
+  },
+  content: {
+    paddingHorizontal: spacing.space3,
+    paddingBottom: spacing.space4,
+    paddingTop: spacing.space2,
+  },
+  name: {
+    color: colors.textPrimary,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.space1,
+  },
+  starIcon: {
+    height: 16,
+    width: 16,
+    marginRight: spacing.space1,
+  },
+  rating: {
+    color: colors.success,
+  },
+  reviews: {
+    color: colors.textGray,
+  },
+  category: {
+    color: colors.textPrimary,
+    fontFamily: typography.chipSelected.fontFamily,
+  },
+  market: {
+    color: colors.textGray,
+  },
+});

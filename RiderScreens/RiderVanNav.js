@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Linking, ScrollView, RefreshControl } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import axios from 'axios';
-import network from '../network';
+import { ordersApi, vendorsApi } from '../lib/api';
+import { colors, radius, spacing, typography } from '../theme';
+import { Button } from '../components/ui';
 
 export default function RiderVanNav() {
   const navigation = useNavigation();
@@ -19,27 +20,27 @@ export default function RiderVanNav() {
 
   const fetchVendorDetails = async () => {
     try {
-      const response = await axios.get(network.serverurl + "/orders/" + OrderID);
-      setAcceptedOrder(response.data);
+      const data = await ordersApi.getOrderById(OrderID);
+      setAcceptedOrder(data);
     } catch (error) {
       console.error('Failed to fetch order details:', error);
     }
 
-   
+
   };
 
   useEffect(()=>{
     const fetchOrderDetail = async () => {
       if (AcceptedOrder) {
         try {
-          const res = await axios.get(network.serverurl + "/vendor/" + AcceptedOrder.VendorID);
-          setVendor(res.data);
-          console.log(res.data);
+          const data = await vendorsApi.getVendorById(AcceptedOrder.VendorID);
+          setVendor(data);
+          console.log(data);
         } catch (error) {
           console.error('Failed to fetch vendor details:', error);
         }
       }
-      
+
     }
 
     fetchOrderDetail();
@@ -58,29 +59,22 @@ export default function RiderVanNav() {
 
   const handleArrivedAtVendor = async () => {
     try {
-      const response = await fetch(`${network.serverurl}/orders/${OrderID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ OrderStatus: 'AtVendor' ,RiderID: 1 }),
-        
-      },
-    );
-    if(response){
-      console.log(response)
-      navigation.navigate('OrderPickUp', { OrderID });
-     
-    }
-   
+      const data = await ordersApi.updateOrder(OrderID, { OrderStatus: 'AtVendor' });
+      if(data){
+        console.log(data)
+        navigation.navigate('OrderPickUp', { OrderID });
+      }
     } catch (error) {
       console.error(error);
     }
-    
+
   };
 
-  
+
 
   return (
     <ScrollView
+      style={styles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -88,8 +82,8 @@ export default function RiderVanNav() {
     >
       {vendor ? (
         <>
-          <Text style={styles.vendorName}>{vendor.BusinessName}</Text>
-          <Text style={styles.vendorContact}>Contact: {vendor.Contact}</Text>
+          <Text style={[typography.display, styles.vendorName]}>{vendor.BusinessName}</Text>
+          <Text style={[typography.body, styles.vendorContact]}>Contact: {vendor.Contact}</Text>
           <MapView
             style={styles.map}
             initialRegion={{
@@ -105,52 +99,41 @@ export default function RiderVanNav() {
               description={vendor.CompanyAddress}
             />
           </MapView>
-          <TouchableOpacity style={styles.button} onPress={handleNavigate}>
-            <Text style={styles.buttonText}>Navigate to Vendor</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.arrivedButton]} onPress={handleArrivedAtVendor}>
-            <Text style={styles.buttonText}>Arrived at Vendor</Text>
-          </TouchableOpacity>
+          <Button variant="secondary" title="Navigate to Vendor" onPress={handleNavigate} style={styles.navigateButton} />
+          <Button title="Arrived at Vendor" onPress={handleArrivedAtVendor} style={styles.arrivedButton} />
         </>
       ) : (
-        <Text>Loading vendor details...</Text>
+        <Text style={typography.body}>Loading vendor details...</Text>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+  },
   container: {
     flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    padding: spacing.space5,
+    paddingTop: spacing.space8,
+    backgroundColor: colors.background,
   },
   vendorName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: spacing.space2,
+    color: colors.textPrimary,
   },
   vendorContact: {
-    fontSize: 16,
-    marginBottom: 16,
+    marginBottom: spacing.space4,
+    color: colors.textPrimary,
   },
   map: {
     height: 400,
-    marginBottom: 16,
+    marginBottom: spacing.space4,
+    borderRadius: radius.lg,
   },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10,
+  navigateButton: {
+    marginBottom: spacing.space3,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  arrivedButton: {
-    backgroundColor: '#28A745',
-  },
+  arrivedButton: {},
 });

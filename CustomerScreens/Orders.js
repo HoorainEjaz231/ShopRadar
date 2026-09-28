@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import network from '../network';
-import * as Icon from "react-native-feather"; 
-import { themeColors } from '../theme';
+import { ordersApi, ratingsApi } from '../lib/api';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Card, Button } from '../components/ui';
 import StarRating from 'react-native-star-rating-widget';
-import { Button } from 'react-native-elements';
-
-import { useNavigation } from '@react-navigation/native';
 
 const OrderScreen = () => {
   const [orders, setOrders] = useState([]);
@@ -16,7 +12,6 @@ const OrderScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [rating, setRating] = useState(0);
   const sortedOrders = [...orders].sort((a, b) => b.OrderID - a.OrderID);
-const navigation = useNavigation();
   useEffect(() => {
     const fetchCustomerID = async () => {
       try {
@@ -39,8 +34,8 @@ const navigation = useNavigation();
 
   const fetchOrders = async (customerID) => {
     try {
-      const response = await axios.get(`${network.serverurl}/orders/customer-orders/${customerID}`);
-      setOrders(response.data);
+      const data = await ordersApi.getOrderHistoryForCustomer(customerID);
+      setOrders(data);
     } catch (error) {
       console.log('Error fetching orders', error);
     }
@@ -58,7 +53,7 @@ const navigation = useNavigation();
   const submitRating = async (orderID, rating,VendorID) => {
     console.log(VendorID)
     try {
-      await axios.post(`${network.serverurl}/ratings/`, {
+      await ratingsApi.createRating({
         CustomerID: customerId,
         VendorID: VendorID,
         OrderID: orderID,
@@ -75,37 +70,37 @@ const navigation = useNavigation();
     const orderRated = Ratings.length > 0;
 
     return (
-      <View style={styles.orderItem}>
-        
-        <Image 
+      <Card style={styles.orderItem}>
+
+        <Image
           source={{ uri: Vendor.Image }} // Replace with actual image URL
-          style={styles.vendorImage} 
-          resizeMode="cover" 
+          style={styles.vendorImage}
+          resizeMode="cover"
         />
-        <Text style={styles.businessName}>{Vendor.BusinessName}</Text>
-        <Text style={styles.orderID}>Order ID: {OrderID}</Text>
-        <Text style={styles.orderDate}>Order Date: {new Date(OrderDate).toLocaleDateString()}</Text>
-        <Text style={[styles.orderStatus,{color: OrderStatus == 'Cancelled'?'red':null}]}>Status: {OrderStatus}</Text>
+        <Text style={[typography.cardTitle, styles.businessName]}>{Vendor.BusinessName}</Text>
+        <Text style={[typography.bodySm, styles.orderID]}>Order ID: {OrderID}</Text>
+        <Text style={[typography.bodySm, styles.orderDate]}>Order Date: {new Date(OrderDate).toLocaleDateString()}</Text>
+        <Text style={[typography.bodySm, styles.orderStatus, OrderStatus === 'Cancelled' && { color: colors.danger }]}>Status: {OrderStatus}</Text>
         {OrderStatus === 'Delivered' && !orderRated ? (
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>Tap to rate:</Text>
-           
+            <Text style={[typography.bodySm, styles.ratingText]}>Tap to rate:</Text>
+
             <StarRating
         rating={rating}
         onChange={setRating}
       />
-            <Button title={'Submit'} onPress={()=>submitRating(OrderID,rating,VendorID)}/>
+            <Button title="Submit" onPress={()=>submitRating(OrderID,rating,VendorID)} style={styles.submitButton}/>
           </View>
         ) : orderRated ? (
-          <Text style={styles.ratedText}>Rated: {Ratings[0].Rating} stars</Text>
+          <Text style={[typography.bodySm, styles.ratedText]}>Rated: {Ratings[0].Rating} stars</Text>
         ) : null}
-      </View>
+      </Card>
     );
   };
 
   return (
-   <View style={{flex:1}}>
-   
+   <View style={styles.screen}>
+   <GlassHeader title="Your Orders" />
    <FlatList
   data={sortedOrders}
   renderItem={renderOrderItem}
@@ -119,99 +114,69 @@ const navigation = useNavigation();
     />
   }
 />
-
-      <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.container}
-          >
-            <Icon.ArrowLeft strokeWidth={3} stroke={themeColors.bgColor(1)} />
-          </TouchableOpacity>
    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   orderItem: {
-   
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 5,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    marginHorizontal:7
+    marginBottom: spacing.space3,
+    marginHorizontal: spacing.space3,
+    padding: 0,
+    overflow: 'hidden',
   },
   vendorImage: {
-    width: 'auto',
+    width: '100%',
     height: 120,
-    borderRadius: 10,
-    marginBottom: 10,
-   // alignSelf: 'center',
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    marginBottom: spacing.space3,
   },
   businessName: {
-    fontWeight: 'bold',
-    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 5,
+    marginBottom: spacing.space1,
+    color: colors.textPrimary,
   },
   orderID: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 5,
-    marginLeft:15
+    color: colors.textGray,
+    marginBottom: spacing.space1,
+    marginLeft: spacing.space4,
   },
   orderDate: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 5,
-    marginLeft:15
+    color: colors.textGray,
+    marginBottom: spacing.space1,
+    marginLeft: spacing.space4,
   },
   orderStatus: {
-    fontSize: 14,
-    color: '#777',
-    marginBottom: 10,
-    marginLeft:15
+    color: colors.textLight,
+    marginBottom: spacing.space3,
+    marginLeft: spacing.space4,
   },
   ratingContainer: {
     alignItems: 'center',
-    marginBottom:10
+    marginBottom: spacing.space3,
   },
   ratingText: {
-    fontSize: 14,
-    marginBottom: 5,
+    marginBottom: spacing.space1,
+    color: colors.textPrimary,
+  },
+  submitButton: {
+    marginTop: spacing.space3,
+    alignSelf: 'stretch',
+    marginHorizontal: spacing.space4,
   },
   ratedText: {
-    fontSize: 14,
-    color: '#28a745',
-    marginBottom:5,
-    marginLeft:15
-  },
-  container: {
-    position: 'absolute',
-    top: 20,
-    left: 16,
-    padding: 8,
-    backgroundColor: 'white',
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  buttonContainer: {
-    padding: 16,
-     // Padding around the button for visibility
+    color: colors.success,
+    marginBottom: spacing.space1,
+    marginLeft: spacing.space4,
   },
   flatListContent: {
-    marginTop: 10, // Adjust the margin as needed
-    paddingBottom:30
+    paddingTop: spacing.headerHeight + spacing.space8,
+    paddingBottom: spacing.space7,
   },
 });
 

@@ -1,4 +1,5 @@
-export const themeColors ={
-    text : '#f97316',
-    bgColor: opacity=> `rgba(251,146,60, ${opacity} )`
-}
+export { colors } from './colors';
+export { typography, fontFamilies } from './typography';
+export { spacing } from './spacing';
+export { radius } from './radius';
+export { shadows } from './shadows';

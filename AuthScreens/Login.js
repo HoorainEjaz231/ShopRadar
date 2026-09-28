@@ -1,116 +1,150 @@
-import React, { useState,useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import network from '../network';
-import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../lib/supabase';
+import { customersApi } from '../lib/api';
+import { colors, radius, spacing, typography } from '../theme';
+import { Button, ModalAlert } from '../components/ui';
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
 
-  
-  const [data,setdata] = useState(null)
-
-  const handleLoginCheck =async () => {
-    const userData = await AsyncStorage.getItem('user');
-    setdata(JSON.parse(userData));
-   console.log(JSON.parse(userData))
-    if(userData){
-      navigation.replace('DrawerNav')
+  const handleLoginCheck = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      const customer = await customersApi.getCustomerByAuthUser();
+      if (customer) {
+        await AsyncStorage.setItem('user', JSON.stringify(customer));
+        navigation.replace('DrawerNav');
+      }
     }
-  }
+  };
 
-useEffect(() => {
+  useEffect(() => {
     handleLoginCheck();
   }, []);
 
-  //const navigation = useNavigation()
-  const handleLogin = async () => {
+  const closeAlert = () => setAlert((a) => ({ ...a, visible: false }));
 
+  const handleLogin = async () => {
+    setSubmitting(true);
     try {
-      const response = await axios.post(`${network.serverurl}/Customer/login`, {
-        Email: email,
-        Password: password,
+      const { customer } = await customersApi.signIn({ Email: email, Password: password });
+      await AsyncStorage.setItem('user', JSON.stringify(customer));
+      setAlert({
+        visible: true,
+        title: 'Welcome back',
+        message: 'Logged in successfully.',
+        onConfirm: () => {
+          closeAlert();
+          navigation.replace('DrawerNav');
+        },
       });
-      if (response.status === 200) {
-        await AsyncStorage.setItem('user', JSON.stringify(response.data));
-        console.log(response.data)
-        Alert.alert('Success', 'Logged in successfully', [
-          { text: 'OK', onPress: () => navigation.replace('DrawerNav') }
-        ]);
-      }
     } catch (error) {
-      console.log('Login failed:', error);
-      Alert.alert('Error', 'Login failed. Please check your credentials and try again.');
+      setAlert({
+        visible: true,
+        title: 'Login failed',
+        message: 'Please check your credentials and try again.',
+        onConfirm: closeAlert,
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Login</Text>
-      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
-      <View style={styles.footer}>
-        <Text>Don't have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-          <Text style={styles.link}>Sign Up</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.footer}>
-        <Text>Show Products Only </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('DrawerNav')}>
-          <Text style={styles.link}>View Products</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={[typography.display, styles.header]}>Login</Text>
+
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Email"
+          placeholderTextColor={colors.textGray}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Password"
+          placeholderTextColor={colors.textGray}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        <Button title="Login" onPress={handleLogin} loading={submitting} style={styles.submit} />
+
+        <View style={styles.footer}>
+          <Text style={typography.bodySm}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={[typography.bodySm, styles.link]}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.footer}>
+          <Text style={typography.bodySm}>Show Products Only </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('DrawerNav')}>
+            <Text style={[typography.bodySm, styles.link]}>View Products</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <ModalAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        confirmLabel="OK"
+        onConfirm={alert.onConfirm}
+        onRequestClose={closeAlert}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
-    padding: 20,
+    backgroundColor: colors.background,
+  },
+  container: {
+    flexGrow: 1,
+    padding: spacing.space5,
     justifyContent: 'center',
-    backgroundColor: '#f8f8f8',
   },
   header: {
-    fontSize: 32,
-    marginBottom: 20,
+    marginBottom: spacing.space7,
     textAlign: 'center',
-    fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   input: {
-    height: 50,
-    borderColor: '#ddd',
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    marginBottom: 15,
-    paddingLeft: 15,
-    borderRadius: 25,
-    backgroundColor: '#fff',
+    marginBottom: spacing.space3,
+    paddingHorizontal: spacing.space5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.backgroundFaf,
+    color: colors.textPrimary,
   },
-  button: {
-    backgroundColor: '#3498db',
-    padding: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
+  submit: {
+    marginTop: spacing.space3,
   },
   footer: {
     flexDirection: 'row',
-    marginTop: 15,
+    marginTop: spacing.space4,
     justifyContent: 'center',
   },
   link: {
-    color: '#3498db',
-    fontWeight: 'bold',
+    color: colors.primary,
+    fontFamily: typography.chipSelected.fontFamily,
   },
 });

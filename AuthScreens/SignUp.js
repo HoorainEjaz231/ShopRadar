@@ -1,106 +1,142 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import axios from 'axios';
-import network from '../network';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { customersApi } from '../lib/api';
+import { colors, radius, spacing, typography } from '../theme';
+import { Button, ModalAlert } from '../components/ui';
+
+const FIELDS = [
+  { key: 'fullName', placeholder: 'Full Name' },
+  { key: 'email', placeholder: 'Email', keyboardType: 'email-address', autoCapitalize: 'none' },
+  { key: 'phone', placeholder: 'Phone', keyboardType: 'phone-pad' },
+  { key: 'address', placeholder: 'Address' },
+  { key: 'city', placeholder: 'City' },
+  { key: 'stateProvince', placeholder: 'State/Province' },
+  { key: 'country', placeholder: 'Country' },
+  { key: 'password', placeholder: 'Password', secureTextEntry: true },
+];
 
 export default function SignUp({ navigation }) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [stateProvince, setStateProvince] = useState('');
-  const [country, setCountry] = useState('');
-  const [password, setPassword] = useState('');
+  const [form, setForm] = useState({
+    fullName: '', email: '', phone: '', address: '', city: '', stateProvince: '', country: '', password: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
+
+  const setField = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
+  const closeAlert = () => setAlert((a) => ({ ...a, visible: false }));
 
   const handleSignUp = async () => {
+    setSubmitting(true);
     try {
-      const response = await axios.post(`${network.serverurl}/Customer/signup`, {
-        FullName: fullName,
-        Email: email,
-        Phone: phone,
-        Address: address,
-        City: city,
-        StateProvince: stateProvince,
-        Country: country,
-        Password: password,
+      const { session } = await customersApi.signUp({
+        FullName: form.fullName,
+        Email: form.email,
+        Phone: form.phone,
+        Address: form.address,
+        City: form.city,
+        StateProvince: form.stateProvince,
+        Country: form.country,
+        Password: form.password,
       });
-      if (response.status === 201) {
-        Alert.alert('Success', 'Account created successfully', [
-          { text: 'OK', onPress: () => navigation.replace('Login') }
-        ]);
-      }
+      setAlert({
+        visible: true,
+        title: 'Account created',
+        message: session
+          ? 'Your account was created successfully.'
+          : 'Your account was created. Check your email to confirm it, then log in.',
+        onConfirm: () => {
+          closeAlert();
+          navigation.replace('Login');
+        },
+      });
     } catch (error) {
-      console.error('Sign up failed:', error);
-      Alert.alert('Error', 'Sign up failed. Please try again.');
+      setAlert({
+        visible: true,
+        title: 'Sign up failed',
+        message: error.message || 'Please try again.',
+        onConfirm: closeAlert,
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Sign Up</Text>
-      <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} />
-      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-      <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} />
-      <TextInput style={styles.input} placeholder="City" value={city} onChangeText={setCity} />
-      <TextInput style={styles.input} placeholder="State/Province" value={stateProvince} onChangeText={setStateProvince} />
-      <TextInput style={styles.input} placeholder="Country" value={country} onChangeText={setCountry} />
-      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
-      <View style={styles.footer}>
-        <Text>Already have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>Login</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={[typography.display, styles.header]}>Sign Up</Text>
+
+        {FIELDS.map((f) => (
+          <TextInput
+            key={f.key}
+            style={[typography.body, styles.input]}
+            placeholder={f.placeholder}
+            placeholderTextColor={colors.textGray}
+            value={form[f.key]}
+            onChangeText={setField(f.key)}
+            keyboardType={f.keyboardType}
+            autoCapitalize={f.autoCapitalize}
+            secureTextEntry={f.secureTextEntry}
+          />
+        ))}
+
+        <Button title="Sign Up" onPress={handleSignUp} loading={submitting} style={styles.submit} />
+
+        <View style={styles.footer}>
+          <Text style={typography.bodySm}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={[typography.bodySm, styles.link]}>Login</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <ModalAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        confirmLabel="OK"
+        onConfirm={alert.onConfirm}
+        onRequestClose={closeAlert}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
-    padding: 20,
+    backgroundColor: colors.background,
+  },
+  container: {
+    flexGrow: 1,
+    padding: spacing.space5,
     justifyContent: 'center',
-    backgroundColor: '#f8f8f8',
   },
   header: {
-    fontSize: 32,
-    marginBottom: 20,
+    marginBottom: spacing.space7,
     textAlign: 'center',
-    fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   input: {
-    height: 50,
-    borderColor: '#ddd',
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    marginBottom: 7,
-    paddingLeft: 15,
-    borderRadius: 25,
-    backgroundColor: '#fff',
+    marginBottom: spacing.space3,
+    paddingHorizontal: spacing.space5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.backgroundFaf,
+    color: colors.textPrimary,
   },
-  button: {
-    backgroundColor: '#e74c3c',
-    padding: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
+  submit: {
+    marginTop: spacing.space3,
   },
   footer: {
     flexDirection: 'row',
-    marginTop: 15,
+    marginTop: spacing.space4,
     justifyContent: 'center',
   },
   link: {
-    color: '#e74c3c',
-    fontWeight: 'bold',
+    color: colors.primary,
+    fontFamily: typography.chipSelected.fontFamily,
   },
 });

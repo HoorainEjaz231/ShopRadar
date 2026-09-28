@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import UploadImage from '../components/uploadimage';
 import SelectImage from '../components/selectImage';
-import network from '../network';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../Firebase/config';
+import { storageApi, ridersApi, customersApi } from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, radius, spacing, typography } from '../theme';
+import { Card, Button } from '../components/ui';
 
 export default function RiderRegister({ route, navigation }) {
 
@@ -18,73 +17,27 @@ export default function RiderRegister({ route, navigation }) {
   const [bikeNumber, setBikeNumber] = useState("");
   const [licenseImage, setLicenseImage] = useState(null);
   const [isAvailable, setIsAvailable] = useState(true);
-  const [imageurl,setimageurl] = useState("")
-  const [liecenceurl,setlienceurl] = useState("")
   const [Contact,setContact] = useState("")
   const { CustomerID } = route.params;
 
-  const Upload1stImage = async () => {
-
-    setUploading(true);
-    const response = await fetch(image);
-    const blob = await response.blob();
-    const storageRef = ref(storage, `images/${Date.now()}`);
-    const uploadTask = uploadBytesResumable(storageRef, blob);
-  
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        console.log(
-          `Progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%`
-        );
-      },
-      (error) => {
-        console.log(error);
-        setUploading(false);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          console.log('File available at', downloadURL);
-          setimageurl(downloadURL)
-          setUploading(false);
-          console.log(downloadURL)
-          handle2ndImage
-        });
-      }
-    );
-};
-
-
-  const handleAddMain = async (downloadURL) => {
-    
+  const handleAddMain = async (licenseUrl, profileUrl) => {
     const riderData = {
       Name: name,
       IDCardNumber: idCardNumber,
       City: city,
       BikeNumber: bikeNumber,
-      LicenseImage: downloadURL,  // Assuming this will be handled similarly
-      RiderProfileImage: imageurl,
+      LicenseImage: licenseUrl,
+      RiderProfileImage: profileUrl,
       Contact:Contact
     };
     console.log(riderData)
 
     try {
-      const response = await fetch(network.serverurl + "/Rider/", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(riderData),
-      });
-      const data = await response.json();
+      const data = await ridersApi.createRider(riderData);
       console.log(data);
       if(data){
         try {
-          const response = await fetch(`${network.serverurl}/Customer/${CustomerID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ RiderID: data.RiderID }),
-          });
+          await customersApi.updateCustomer(CustomerID, { RiderID: data.RiderID });
         } catch (error) {
           console.error(error);
         }
@@ -112,92 +65,97 @@ export default function RiderRegister({ route, navigation }) {
         }
 
       }
-      
-
-       // Redirect to RiderHome
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handle2ndImage = () => {
-    if (licenseImage) {
-      console.log("handle2ndimage")
-      UploadImage(licenseImage, setUploading, handleAddMain);
-    } else {
+  const handleRegister = async () => {
+    if (!image || !licenseImage) {
       console.log("plz select image first")
+      return;
     }
-  };
-  const handle1stImage = () => {
-  
-    if (image) {
-      Upload1stImage()
-      handle2ndImage()
-    } else {
-      console.log("plz select image first")
+    setUploading(true);
+    try {
+      const profileUrl = await storageApi.uploadImage(image, 'riders');
+      const licenseUrl = await storageApi.uploadImage(licenseImage, 'riders');
+      await handleAddMain(licenseUrl, profileUrl);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUploading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.formContainer}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Card style={styles.formContainer}>
         <TextInput
-          style={styles.input}
+          style={[typography.body, styles.input]}
           placeholder="Name"
+          placeholderTextColor={colors.textGray}
           onChangeText={setName}
         />
         <TextInput
-          style={styles.input}
+          style={[typography.body, styles.input]}
           placeholder="ID Card Number"
+          placeholderTextColor={colors.textGray}
           onChangeText={setIdCardNumber}
         />
         <TextInput
-          style={styles.input}
+          style={[typography.body, styles.input]}
           placeholder="City"
+          placeholderTextColor={colors.textGray}
           onChangeText={setCity}
         />
         <TextInput
-          style={styles.input}
+          style={[typography.body, styles.input]}
           placeholder="Bike Number"
+          placeholderTextColor={colors.textGray}
           onChangeText={setBikeNumber}
         />
         <TextInput
-          style={styles.input}
+          style={[typography.body, styles.input]}
           placeholder="Contact"
+          placeholderTextColor={colors.textGray}
           onChangeText={setContact}
         />
-        <Text style={{color:'gray',marginTop:5}}>Select Licence Image</Text>
+        <Text style={[typography.label, styles.fieldLabel]}>Select Licence Image</Text>
         <SelectImage  image={licenseImage} setImage={setLicenseImage}/>
-        <Text style={{color:'gray',marginTop:5}}>Select Profile Image</Text>
+        <Text style={[typography.label, styles.fieldLabel]}>Select Profile Image</Text>
         <SelectImage image={image} setImage={setImage} />
-        <Button title="Register" onPress={handle1stImage} disabled={uploading} />
-      </View>
-    </View>
+        <Button title="Register" onPress={handleRegister} disabled={uploading} style={styles.submitButton} />
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
-  formContainer: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  content: {
+    padding: spacing.space5,
+    paddingTop: spacing.space8,
   },
+  formContainer: {},
   input: {
-    height: 40,
-    borderColor: '#CCCCCC',
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.backgroundFaf,
+    marginBottom: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    color: colors.textPrimary,
+  },
+  fieldLabel: {
+    color: colors.textGray,
+    marginTop: spacing.space2,
+    marginBottom: spacing.space2,
+  },
+  submitButton: {
+    marginTop: spacing.space4,
   },
 });

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
-import axios from 'axios';
-import { themeColors } from '../theme'; // Assuming you have themeColors for consistent styling
-import network from '../network';
+import { View, Text, FlatList, StyleSheet, TextInput, Modal } from 'react-native';
+import { customersApi } from '../lib/api';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Card, Button } from '../components/ui';
 
 const CustomersManagementScreen = ({ navigation }) => {
   const [customers, setCustomers] = useState([]);
@@ -15,9 +15,9 @@ const CustomersManagementScreen = ({ navigation }) => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await axios.get(network.serverurl + '/Customer/Customers/all');
-        setCustomers(response.data);
-        setFilteredCustomers(response.data); // Set initially to all customers
+        const data = await customersApi.getAllCustomersWithRoles();
+        setCustomers(data);
+        setFilteredCustomers(data); // Set initially to all customers
       } catch (error) {
         console.error('Failed to fetch customers', error);
       }
@@ -53,7 +53,7 @@ const CustomersManagementScreen = ({ navigation }) => {
   // Delete customer function
   const deleteCustomer = async (customerID) => {
     try {
-      await axios.delete(network.serverurl + '/customers/delete/' + customerID);
+      await customersApi.deleteCustomer(customerID);
       setCustomers(customers.filter((customer) => customer.CustomerID !== customerID));
       closeModal();
     } catch (error) {
@@ -63,34 +63,39 @@ const CustomersManagementScreen = ({ navigation }) => {
 
   // Render each customer in the list
   const renderCustomerItem = ({ item }) => (
-    <TouchableOpacity style={styles.customerItem} onPress={() => openModal(item)}>
-      <Text style={styles.customerText}>Customer ID: {item.CustomerID}</Text>
-      <Text style={styles.customerText}>Name: {item.FullName}</Text>
-      <Text style={styles.customerText}>Email: {item.Email}</Text>
-      <Text style={styles.customerText}>Phone: {item.Phone}</Text>
-      <View style={{ marginTop: 10 }}>
-        {item.VendorID ? <Text style={styles.customerText}>VendorID: {item.VendorID}</Text> : null}
-        {item.RiderID ? <Text style={styles.customerText}>RiderID: {item.RiderID}</Text> : null}
-      </View>
-    </TouchableOpacity>
+    <Card onPress={() => openModal(item)} style={styles.customerCard}>
+      <Text style={[typography.cardTitle, styles.customerName]}>{item.FullName}</Text>
+      <Text style={[typography.bodySm, styles.customerMeta]}>{item.Email}</Text>
+      <Text style={[typography.bodySm, styles.customerMeta]}>{item.Phone}</Text>
+      {(item.VendorID || item.RiderID) && (
+        <View style={styles.badgeRow}>
+          {item.VendorID ? <Text style={[typography.caption, styles.badge]}>Vendor #{item.VendorID}</Text> : null}
+          {item.RiderID ? <Text style={[typography.caption, styles.badge]}>Rider #{item.RiderID}</Text> : null}
+        </View>
+      )}
+    </Card>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Customer Management</Text>
-
-      {/* Search Bar */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by customer name"
-        value={searchQuery}
-        onChangeText={(text) => setSearchQuery(text)}
+      <GlassHeader
+        title="Customer Management"
+        bottomSlot={
+          <TextInput
+            style={[typography.bodySm, styles.searchInput]}
+            placeholder="Search by customer name"
+            placeholderTextColor={colors.textGray}
+            value={searchQuery}
+            onChangeText={(text) => setSearchQuery(text)}
+          />
+        }
       />
 
       <FlatList
         data={filteredCustomers}
         renderItem={renderCustomerItem}
         keyExtractor={(item) => item.CustomerID.toString()}
+        contentContainerStyle={styles.listContent}
       />
 
       {/* Modal for showing customer details */}
@@ -104,88 +109,85 @@ const CustomersManagementScreen = ({ navigation }) => {
           <View style={styles.modalContent}>
             {selectedCustomer && (
               <>
-                <Text style={styles.modalTitle}>Customer Details</Text>
-                <Text style={styles.modalText}>Name: {selectedCustomer.FullName}</Text>
-                <Text style={styles.modalText}>Email: {selectedCustomer.Email}</Text>
-                <Text style={styles.modalText}>Phone: {selectedCustomer.Phone}</Text>
-                <Text style={styles.modalText}>Address: {selectedCustomer.Address}</Text>
-                <Text style={styles.modalText}>City: {selectedCustomer.City}</Text>
-                <Text style={styles.modalText}>Country: {selectedCustomer.Country}</Text>
+                <Text style={[typography.headerTitle, styles.modalTitle]}>Customer Details</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>Name: {selectedCustomer.FullName}</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>Email: {selectedCustomer.Email}</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>Phone: {selectedCustomer.Phone}</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>Address: {selectedCustomer.Address}</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>City: {selectedCustomer.City}</Text>
+                <Text style={[typography.bodySm, styles.modalText]}>Country: {selectedCustomer.Country}</Text>
 
                 {/* Vendor Information */}
                 {selectedCustomer.vendor && (
                   <View>
-                    <Text style={styles.vendorTitle}>Vendor Details</Text>
-                    <Text style={styles.modalText}>Vendor Name: {selectedCustomer.vendor.BusinessName}</Text>
-                    <Text style={styles.modalText}>Market: {selectedCustomer.vendor.Market}</Text>
+                    <Text style={[typography.sectionTitle, styles.vendorTitle]}>Vendor Details</Text>
+                    <Text style={[typography.bodySm, styles.modalText]}>Vendor Name: {selectedCustomer.vendor.BusinessName}</Text>
+                    <Text style={[typography.bodySm, styles.modalText]}>Market: {selectedCustomer.vendor.Market}</Text>
                   </View>
                 )}
 
                 {/* Rider Information */}
                 {selectedCustomer.rider && (
                   <>
-                    <Text style={styles.riderTitle}>Rider Details</Text>
-                    <Text style={styles.modalText}>Rider Name: {selectedCustomer.rider.Name}</Text>
-                    <Text style={styles.modalText}>Bike Number: {selectedCustomer.rider.BikeNumber}</Text>
+                    <Text style={[typography.sectionTitle, styles.riderTitle]}>Rider Details</Text>
+                    <Text style={[typography.bodySm, styles.modalText]}>Rider Name: {selectedCustomer.rider.Name}</Text>
+                    <Text style={[typography.bodySm, styles.modalText]}>Bike Number: {selectedCustomer.rider.BikeNumber}</Text>
                   </>
                 )}
 
-                <TouchableOpacity
-                  style={styles.deleteButton}
+                <Button
+                  title="Delete Customer"
                   onPress={() => deleteCustomer(selectedCustomer.CustomerID)}
-                >
-                  <Text style={styles.buttonText}>Delete Customer</Text>
-                </TouchableOpacity>
+                  style={[styles.modalButton, styles.deleteButton]}
+                />
 
-                <TouchableOpacity
-                  style={styles.editButton}
+                <Button
+                  variant="secondary"
+                  title="Edit Customer Details"
                   onPress={() => {
                     closeModal();
                     navigation.navigate('EditCustomer', { customer: selectedCustomer });
                   }}
-                >
-                  <Text style={styles.buttonText}>Edit Customer Details</Text>
-                </TouchableOpacity>
+                  style={styles.modalButton}
+                />
 
                 {selectedCustomer.vendor && (
                   <View>
-                    <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => {
-                      closeModal();
-                      navigation.navigate('EditVendor', { VendorID: selectedCustomer.VendorID });
-                    }}
-                  >
-                    <Text style={styles.buttonText}>Edit Vendor Details</Text>
-                  </TouchableOpacity>
+                    <Button
+                      variant="secondary"
+                      title="Edit Vendor Details"
+                      onPress={() => {
+                        closeModal();
+                        navigation.navigate('EditVendor', { VendorID: selectedCustomer.VendorID });
+                      }}
+                      style={styles.modalButton}
+                    />
 
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => {
-                      closeModal();
-                      navigation.navigate('AllProducts', { VendorID: selectedCustomer.VendorID });
-                    }}
-                  >
-                    <Text style={styles.buttonText}>Vendor All Products</Text>
-                  </TouchableOpacity>
+                    <Button
+                      variant="secondary"
+                      title="Vendor All Products"
+                      onPress={() => {
+                        closeModal();
+                        navigation.navigate('AllProducts', { VendorID: selectedCustomer.VendorID });
+                      }}
+                      style={styles.modalButton}
+                    />
                   </View>
                 )}
 
                 {selectedCustomer.rider && (
-                  <TouchableOpacity
-                    style={styles.editButton}
+                  <Button
+                    variant="secondary"
+                    title="Edit Rider Details"
                     onPress={() => {
                       closeModal();
                       navigation.navigate('EditRider', { RiderID: selectedCustomer.RiderID });
                     }}
-                  >
-                    <Text style={styles.buttonText}>Edit Rider Details</Text>
-                  </TouchableOpacity>
+                    style={styles.modalButton}
+                  />
                 )}
 
-                <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
-                  <Text style={styles.buttonText}>Close</Text>
-                </TouchableOpacity>
+                <Button title="Close" onPress={closeModal} style={styles.modalButton} />
               </>
             )}
           </View>
@@ -200,93 +202,79 @@ export default CustomersManagementScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: themeColors.bgColor(0.1),
-    padding: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: themeColors.text,
-    textAlign: 'center',
-    marginBottom: 20,
+    backgroundColor: colors.background,
   },
   searchInput: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 15,
-    fontSize: 16,
-    borderColor: '#ccc',
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space2,
+    borderRadius: radius.pill,
+    borderColor: colors.white,
     borderWidth: 1,
+    color: colors.textPrimary,
   },
-  customerItem: {
-    backgroundColor: themeColors.bgColor(0.3),
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+  listContent: {
+    paddingTop: spacing.headerHeight + spacing.space7 + spacing.space8,
+    paddingHorizontal: spacing.space5,
+    paddingBottom: spacing.space6,
   },
-  customerText: {
-    fontSize: 16,
-    color: themeColors.text,
+  customerCard: {
+    marginBottom: spacing.space3,
+  },
+  customerName: {
+    color: colors.textPrimary,
+  },
+  customerMeta: {
+    color: colors.textGray,
+    marginTop: spacing.space1,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: spacing.space2,
+    marginTop: spacing.space3,
+  },
+  badge: {
+    backgroundColor: colors.backgroundFaf,
+    color: colors.primary,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space1,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    paddingHorizontal: spacing.space5,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: colors.white,
+    padding: spacing.space6,
+    borderRadius: radius.xl,
+    ...shadows.modal,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: themeColors.text,
-    marginBottom: 15,
+    color: colors.textPrimary,
+    marginBottom: spacing.space4,
   },
   modalText: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: themeColors.text,
+    marginBottom: spacing.space2,
+    color: colors.textPrimary,
   },
   vendorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: themeColors.primary,
-    marginTop: 15,
+    color: colors.primary,
+    marginTop: spacing.space4,
+    marginBottom: spacing.space2,
   },
   riderTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: themeColors.secondary,
-    marginTop: 15,
+    color: colors.info,
+    marginTop: spacing.space4,
+    marginBottom: spacing.space2,
+  },
+  modalButton: {
+    marginTop: spacing.space3,
   },
   deleteButton: {
-    backgroundColor: 'red',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  editButton: {
-    backgroundColor: 'orange',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  cancelButton: {
-    backgroundColor: 'gray',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    backgroundColor: colors.danger,
   },
 });

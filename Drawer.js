@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 import { Avatar } from 'react-native-elements';
+import { colors, radius, spacing, typography } from './theme';
+import { Button } from './components/ui';
 import VendorNavigation from './Navigations/VendorNav';
 import CustomerNav from './Navigations/CustomerNav';
 import RiderNavigation from './Navigations/RiderNav';
@@ -12,7 +14,7 @@ import ProfileScreen from './Navigations/ViewProfile';
 const defaultAvatar = 'https://i.sstatic.net/l60Hf.png';
 import VendorRegister from './VendorScreens/VendorRegister';
 import RiderRegister from './RiderScreens/RiderRegister';
-import AdminNavigation from '../Shop-Radar/Navigations/AdminNav';
+import AdminNavigation from './Navigations/AdminNav';
 import EditRider from './EDITComponent/EditRider';
 import EditVendor from './EDITComponent/EditVendor';
 import EditCustomer from './EDITComponent/EditCustomer';
@@ -53,33 +55,29 @@ function CustomDrawerContent(props) {
   }
 
   return (
-    <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.scrollContent}>
       {/* Header Section */}
       <View style={styles.header}>
         {user ? (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Profile</Text>
+          <TouchableOpacity style={styles.profilePill} onPress={handleLogout}>
+            <Text style={styles.profilePillText}>Profile</Text>
           </TouchableOpacity>
         ) : null}
         <Avatar size="large" rounded source={{ uri: user?.ProfileImage || defaultAvatar }} />
         {user ? (
           <View style={styles.userInfo}>
-            <Text style={styles.name}>{user?.FullName}</Text>
-            <Text style={styles.email}>{user?.Email}</Text>
+            <Text style={[typography.sectionTitle, styles.name]}>{user?.FullName}</Text>
+            <Text style={[typography.bodySm, styles.email]}>{user?.Email}</Text>
           </View>
         ) : (
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Login</Text>
-          </TouchableOpacity>
+          <Button title="Login" onPress={handleLogin} style={styles.loginButton} />
         )}
       </View>
 
       {/* Main Content Section */}
       <View style={styles.mainContent}>
         {props.currentMode === 'Customer' && (
-          <TouchableOpacity style={styles.ordersButton} onPress={() => navigation.navigate('Your Orders')}>
-            <Text style={styles.ordersButtonText}>Your Orders</Text>
-          </TouchableOpacity>
+          <Button title="Your Orders" onPress={() => navigation.navigate('Your Orders')} />
         )}
       </View>
 
@@ -89,24 +87,36 @@ function CustomDrawerContent(props) {
       {/* Footer Section with Mode Buttons */}
       <View style={styles.footer}>
         {props.currentMode !== 'Customer' && (
-          <TouchableOpacity style={styles.modeButton} onPress={() => navigateToMode('Customer', 'Customer Mode')}>
-            <Text style={styles.buttonText}>Customer Mode</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            title="Customer Mode"
+            onPress={() => navigateToMode('Customer', 'Customer Mode')}
+            style={styles.modeButton}
+          />
         )}
         {props.currentMode !== 'Vendor' && data?.VendorID !== null && (
-          <TouchableOpacity style={styles.modeButton} onPress={() => navigateToMode('Vendor', 'Vendor Mode')}>
-            <Text style={styles.buttonText}>Vendor Mode</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            title="Vendor Mode"
+            onPress={() => navigateToMode('Vendor', 'Vendor Mode')}
+            style={styles.modeButton}
+          />
         )}
         {props.currentMode !== 'Rider' && data?.RiderID !== null && (
-          <TouchableOpacity style={styles.modeButton} onPress={() => navigateToMode('Rider', 'Rider Mode')}>
-            <Text style={styles.buttonText}>Rider Mode</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            title="Rider Mode"
+            onPress={() => navigateToMode('Rider', 'Rider Mode')}
+            style={styles.modeButton}
+          />
         )}
         {props.currentMode !== 'Admin' && data?.AdminUser === true && (
-          <TouchableOpacity style={styles.modeButton} onPress={() => navigateToMode('Admin', 'Admin Mode')}>
-            <Text style={styles.buttonText}>Admin Mode</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            title="Admin Mode"
+            onPress={() => navigateToMode('Admin', 'Admin Mode')}
+            style={styles.modeButton}
+          />
         )}
       </View>
     </DrawerContentScrollView>
@@ -155,80 +165,53 @@ export default function DrawerNav() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   header: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    padding: spacing.space5,
+    backgroundColor: colors.backgroundFaf,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: colors.white,
     position: 'relative',
-    
   },
   userInfo: {
-    marginTop: 10,
+    marginTop: spacing.space3,
     alignItems: 'center',
   },
-  logoutButton: {
+  profilePill: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#f39c12',
-    padding: 10,
-    borderRadius: 5,
+    top: spacing.space3,
+    right: spacing.space3,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.space1,
+    paddingHorizontal: spacing.space3,
+    borderRadius: radius.pill,
   },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  profilePillText: {
+    ...typography.chip,
+    color: colors.white,
   },
   name: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: colors.textPrimary,
   },
   email: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textGray,
   },
   loginButton: {
-    marginTop: 15,
-    backgroundColor: '#3498db',
-    padding: 10,
-    borderRadius: 5,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: spacing.space4,
+    alignSelf: 'stretch',
   },
   mainContent: {
-    padding: 10,
-  },
-  ordersButton: {
-    backgroundColor: '#f39c12',
-    padding: 10,
-    margin: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  ordersButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    padding: spacing.space4,
   },
   footer: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.space4,
+    paddingBottom: spacing.space6,
   },
   modeButton: {
-    backgroundColor: '#3498db',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: spacing.space3,
   },
 });

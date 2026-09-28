@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, FlatList, Button, Pressable, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, FlatList, Pressable, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import network from '../network';
-import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { ridersApi, ordersApi } from '../lib/api';
+import * as Icon from 'react-native-feather';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Card, Button, IconContainer } from '../components/ui';
 
 export default function RiderHome() {
   const navigation = useNavigation();
@@ -42,14 +43,13 @@ export default function RiderHome() {
 
     try {
       // First, fetch the assigned order
-      const assignedOrderResponse = await axios.get(`${network.serverurl}/Rider/assigned-order/${RiderID.RiderID}`);
-      
-      if (assignedOrderResponse.data.AssignedOrder) {
-        setAssOrder(assignedOrderResponse.data);
+      const assignedOrder = await ridersApi.getAssignedOrder(RiderID.RiderID);
+
+      if (assignedOrder) {
+        setAssOrder(assignedOrder);
 
         // Now fetch the order details using the AssignedOrder
-        const orderResponse = await axios.get(`${network.serverurl}/orders/${assignedOrderResponse.data.AssignedOrder}`);
-        const orderData = orderResponse.data;
+        const orderData = await ordersApi.getOrderById(assignedOrder);
         setPreviousOrder(orderData);
 
         // Navigate based on the OrderStatus
@@ -81,8 +81,7 @@ export default function RiderHome() {
     setIsLoading(true); // Set loading to true before fetching
 
     try {
-      const response = await fetch(`${network.serverurl}/orders/all`);
-      const data = await response.json();
+      const data = await ordersApi.getAvailableOrdersForRiders();
 
       if (data.length > 0) {
         setOrders(data.sort((a, b) => b.OrderID - a.OrderID));
@@ -103,17 +102,8 @@ export default function RiderHome() {
 
   const handleAccept = async (OrderID) => {
     try {
-      await fetch(`${network.serverurl}/orders/${OrderID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ OrderStatus: 'accepted', RiderID: RiderID.RiderID }),
-      });
-
-      await fetch(`${network.serverurl}/Rider/Update/${RiderID.RiderID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ AssignedOrder: OrderID, IsAvailable: false }),
-      });
+      await ordersApi.updateOrder(OrderID, { OrderStatus: 'accepted', RiderID: RiderID.RiderID });
+      await ridersApi.updateRider(RiderID.RiderID, { AssignedOrder: OrderID, IsAvailable: false });
 
       navigation.navigate('RiderVanNav', { OrderID });
     } catch (error) {
@@ -126,35 +116,38 @@ export default function RiderHome() {
   };
 
   const renderOrder = ({ item }) => (
-    <View style={styles.orderContainer}>
-      <Text style={styles.orderText}>Order ID: {item.OrderID}</Text>
-      <Text style={styles.orderText}>Delivery Address: {item.DeliveryAddress}</Text>
-      <Text style={[styles.orderText, { fontWeight: '700', fontSize: 20 }]}>Rs: {item.DeliveryFee}</Text>
+    <Card style={styles.orderContainer}>
+      <Text style={[typography.bodySm, styles.orderText]}>Order ID: {item.OrderID}</Text>
+      <Text style={[typography.bodySm, styles.orderText]}>Delivery Address: {item.DeliveryAddress}</Text>
+      <Text style={[typography.display, styles.orderFee]}>Rs: {item.DeliveryFee}</Text>
       <View style={styles.buttonContainer}>
-        <Button title="Accept" onPress={() => handleAccept(item.OrderID)} />
-        <Button title="Decline" onPress={() => handleDecline(item.OrderID)} />
+        <Button variant="secondary" title="Decline" onPress={() => handleDecline(item.OrderID)} style={styles.actionButton} />
+        <Button title="Accept" onPress={() => handleAccept(item.OrderID)} style={styles.actionButton} />
       </View>
-    </View>
+    </Card>
   );
 
   if (isLoading) {
     // Display loading indicator when data is being fetched
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[typography.body, styles.loadingText]}>Loading...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.vendorName}>Incoming Orders</Text>
-        <TouchableOpacity onPress={() => setVendorSettingModal(true)}>
-          <Ionicons name="ellipsis-vertical" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
+      <GlassHeader
+        title="Incoming Orders"
+        showBack={false}
+        rightSlot={
+          <IconContainer variant="header" onPress={() => setVendorSettingModal(true)}>
+            <Icon.MoreVertical width={20} height={20} stroke={colors.textPrimary} />
+          </IconContainer>
+        }
+      />
       <Modal
         transparent={true}
         visible={VendorSettingModalVisible}
@@ -167,7 +160,7 @@ export default function RiderHome() {
               setVendorSettingModal(false);
               navigation.navigate('RiderIncome');
             }}>
-              <Text style={styles.menuOption}>Income</Text>
+              <Text style={[typography.body, styles.menuOption]}>Income</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -177,6 +170,7 @@ export default function RiderHome() {
           data={orders}
           renderItem={renderOrder}
           keyExtractor={(item) => item.OrderID.toString()}
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -184,13 +178,14 @@ export default function RiderHome() {
       ) : (
         <View style={{ flex: 1 }}>
           <ScrollView
+            contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-            <View style={{ marginTop: 200 }}>
-              <Text style={styles.NoOrder}>Pull Down To Refresh</Text>
-              <Text style={styles.NoOrder}>No Orders Found</Text>
+            <View style={{ marginTop: spacing.space8 }}>
+              <Text style={[typography.sectionTitle, styles.noOrder]}>Pull Down To Refresh</Text>
+              <Text style={[typography.sectionTitle, styles.noOrder]}>No Orders Found</Text>
             </View>
           </ScrollView>
         </View>
@@ -202,70 +197,58 @@ export default function RiderHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f7ff',
+    backgroundColor: colors.background,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
-    paddingVertical: 15,
-  },
-  vendorName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+  listContent: {
+    paddingTop: spacing.headerHeight + spacing.space8,
+    paddingBottom: spacing.space6,
   },
   orderContainer: {
-    padding: 20,
-    margin: 5,
-    marginBottom: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    marginHorizontal: spacing.space3,
+    marginBottom: spacing.space3,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContentVendor: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: colors.white,
+    padding: spacing.space5,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
   },
   menuOption: {
-    fontSize: 18,
-    padding: 10,
+    padding: spacing.space3,
+    color: colors.textPrimary,
   },
   orderText: {
-    fontSize: 16,
-    marginBottom: 10,
+    color: colors.textPrimary,
+    marginBottom: spacing.space1,
+  },
+  orderFee: {
+    color: colors.textPrimary,
+    marginBottom: spacing.space3,
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.space3,
   },
-  NoOrder: {
+  actionButton: {
+    flex: 1,
+  },
+  noOrder: {
     textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '600',
+    color: colors.textGray,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: spacing.space3,
+    color: colors.textGray,
   },
 });

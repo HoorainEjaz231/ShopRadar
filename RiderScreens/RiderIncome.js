@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl,TouchableOpacity} from 'react-native';
-import axios from 'axios';
+import { View, Text, StyleSheet, FlatList, RefreshControl} from 'react-native';
+import { ordersApi } from '../lib/api';
 import moment from 'moment';
-import network from '../network';
-import { themeColors } from '../theme';
-import * as Icon from "react-native-feather"; // Import Feather icons
+import { colors, spacing, typography } from '../theme';
+import { GlassHeader, Card } from '../components/ui';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -13,7 +12,6 @@ const RiderIncomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [RiderID,setRiderID] = useState(null)
-const navigation = useNavigation();
 
 useEffect(() => {
   const fetchRiderID = async () => {
@@ -42,8 +40,8 @@ useEffect(() => {
   const fetchIncomeData = async () => {
    if(RiderID){
     try {
-      const response = await axios.get(network.serverurl + '/orders/RiderIncome/'+ RiderID);
-      setIncomeData(response.data);
+      const data = await ordersApi.getRiderIncome(RiderID);
+      setIncomeData(data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -58,20 +56,19 @@ useEffect(() => {
   };
 
   const renderOrderItem = ({ item: order }) => (
-    <View style={styles.orderCard}>
-      <Text style={styles.orderDetail}>Order ID: {order.OrderID}</Text>
-      <Text style={styles.orderDetail}>Delivery Address: {order.DeliveryAddress}</Text>
-      <Text style={styles.orderDetail}>Order Status: {order.OrderStatus}</Text>
-      <Text style={styles.orderDetail}>Delivery Fee: Rs {order.DeliveryFee}</Text>
-      {/* <Text style={styles.orderDetail}>Order Date: {moment(order.OrderDate).format('DD/MM/YYYY')}</Text> */}
-    </View>
+    <Card style={styles.orderCard}>
+      <Text style={[typography.bodySm, styles.orderDetail]}>Order ID: {order.OrderID}</Text>
+      <Text style={[typography.bodySm, styles.orderDetail]}>Delivery Address: {order.DeliveryAddress}</Text>
+      <Text style={[typography.bodySm, styles.orderDetail]}>Order Status: {order.OrderStatus}</Text>
+      <Text style={[typography.bodySm, styles.orderDetail]}>Delivery Fee: Rs {order.DeliveryFee}</Text>
+    </Card>
   );
 
   const renderSection = ({ title, orders, income }) => (
     <View style={styles.section}>
-      <View style={{marginLeft:15}}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.incomeText}>Total Income: Rs {income || 0}</Text>
+      <View style={styles.sectionHeaderBlock}>
+      <Text style={[typography.sectionTitle, styles.sectionTitle]}>{title}</Text>
+      <Text style={[typography.cardTitle, styles.incomeText]}>Total Income: Rs {income || 0}</Text>
       </View>
       {orders && orders.length > 0 ? (
         <FlatList
@@ -80,17 +77,27 @@ useEffect(() => {
           keyExtractor={(order) => order.OrderID.toString()}
         />
       ) : (
-        <Text style={styles.noDataText}>No income</Text>
+        <Text style={[typography.bodySm, styles.noDataText]}>No income</Text>
       )}
     </View>
   );
 
   if (loading) {
-    return <Text style={styles.loadingText}>Loading...</Text>;
+    return (
+      <View style={styles.screen}>
+        <GlassHeader title="My Income" />
+        <Text style={[typography.body, styles.loadingText]}>Loading...</Text>
+      </View>
+    );
   }
 
   if (!incomeData) {
-    return <Text style={styles.noDataText}>No income data available</Text>;
+    return (
+      <View style={styles.screen}>
+        <GlassHeader title="My Income" />
+        <Text style={[typography.body, styles.noDataText]}>No income data available</Text>
+      </View>
+    );
   }
 
   const sections = [
@@ -104,93 +111,62 @@ useEffect(() => {
   ];
 
   return (
-    <View style={{flex:1}}>
+    <View style={styles.screen}>
+      <GlassHeader title="My Income" />
         <FlatList
       data={sections}
       renderItem={({ item }) => renderSection(item)}
       keyExtractor={(item) => item.title}
       contentContainerStyle={styles.flatListContainer}
-      ListEmptyComponent={<Text style={styles.noDataText}>No income data available</Text>}
+      ListEmptyComponent={<Text style={[typography.body, styles.noDataText]}>No income data available</Text>}
     refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh}  />
       }
     />
-    <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backbutton}
-          >
-            <Icon.ArrowLeft strokeWidth={3} stroke={themeColors.bgColor(1)} />
-          </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f7f7f7',
+    backgroundColor: colors.background,
   },
   flatListContainer: {
-    paddingTop: 60, // Adjust this value for top margin
-   // paddingHorizontal: 16,
-    backgroundColor: '#f7f7f7',
+    paddingTop: spacing.headerHeight + spacing.space8,
+    paddingBottom: spacing.space6,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.space6,
+  },
+  sectionHeaderBlock: {
+    marginLeft: spacing.space4,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    color: colors.textPrimary,
+    marginBottom: spacing.space2,
   },
   incomeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 8,
+    color: colors.success,
+    marginBottom: spacing.space2,
   },
   orderCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 12,
-    marginHorizontal:7
+    marginBottom: spacing.space3,
+    marginHorizontal: spacing.space2,
   },
   orderDetail: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  backbutton: {
-    position: 'absolute',
-    top: 10,
-    left: 20,
-    padding: 8,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    color: colors.textPrimary,
+    marginBottom: spacing.space1,
   },
   noDataText: {
-    fontSize: 18,
-    color: '#888',
-    textAlign:'center'
+    color: colors.textGray,
+    textAlign:'center',
+    marginTop: spacing.headerHeight + spacing.space8,
   },
   loadingText: {
-    fontSize: 18,
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: spacing.headerHeight + spacing.space8,
+    color: colors.textGray,
   },
 });
 

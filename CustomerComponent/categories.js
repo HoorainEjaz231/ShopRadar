@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet } from "react-native";
 import { categories } from "../constants";
 import { useNavigation } from "@react-navigation/native";
+import { colors, spacing, typography, shadows } from "../theme";
 
 export default function Categories() {
   const navigation = useNavigation()
@@ -22,10 +23,6 @@ const handleCategories = (props) => {
         {categories.map((category, index) => {
           let isActive = category.id === activeCategory;
 
-          let btnClass = isActive ? '#4B5563' : '#E5E7EB';
-          let textColor = isActive ? '#111827' : '#718096';
-          let textClass = isActive ? '600' : 'normal';
-
           return (
             <View
               key={index}
@@ -33,7 +30,7 @@ const handleCategories = (props) => {
             >
               <TouchableOpacity
                 onPress={() => handleCategories(category)}
-                style={[styles.button, { backgroundColor: btnClass }]}
+                style={[styles.button, isActive ? styles.buttonActive : styles.buttonInactive]}
               >
                 <View style={styles.imageContainer}>
                   <Image
@@ -42,8 +39,8 @@ const handleCategories = (props) => {
                   />
                 </View>
               </TouchableOpacity>
-              <Text 
-                style={[styles.categoryText, { color: textColor, fontWeight: textClass }]}
+              <Text
+                style={[isActive ? typography.chipSelected : typography.chip, { color: isActive ? colors.textPrimary : colors.textGray }]}
               >
                 {category.name}
               </Text>
@@ -57,46 +54,44 @@ const handleCategories = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
+    marginTop: spacing.space4,
   },
   scrollView: {
     overflow: 'visible',
   },
   scrollContainer: {
-    paddingHorizontal: 15,
+    paddingHorizontal: spacing.space4,
   },
   categoryContainer: {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 20,
-    marginBottom: 20,
+    marginRight: spacing.space5,
+    marginBottom: spacing.space5,
   },
   button: {
     padding: 4,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.white,
+    ...shadows.card,
+  },
+  buttonActive: {
+    backgroundColor: colors.primary,
+  },
+  buttonInactive: {
+    backgroundColor: colors.backgroundFaf,
   },
   imageContainer: {
     width: 45,
     height: 45,
-    borderRadius: 22.5, // Half of the width/height to make it circular
-    overflow: 'hidden', // Ensures image stays within the circle
+    borderRadius: 22.5,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
   image: {
     width: '100%',
     height: '100%',
-  },
-  categoryText: {
-    fontSize: 12,
   },
 });

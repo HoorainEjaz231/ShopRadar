@@ -18,8 +18,8 @@ const Stack = createNativeStackNavigator();
 export default function AdminNavigation() {
   return (
     
-      <Stack.Navigator initialRouteName="AdminHome">
-        <Stack.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: 'Admin Dashboard' }} />
+      <Stack.Navigator initialRouteName="AdminHome" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
         <Stack.Screen name="ManageOrders" component={ManageOrdersScreen} />
         <Stack.Screen name="CustomerManagement" component={CustomersManagementScreen} />
         <Stack.Screen name="EditCustomer" component={EditCustomer} />

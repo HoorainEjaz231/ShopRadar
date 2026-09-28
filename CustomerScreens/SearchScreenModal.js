@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { SafeAreaView, View, TextInput, ScrollView, Text, Modal,Image, Button, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { View, TextInput, ScrollView, Text, Modal,Image, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import * as Icon from 'react-native-feather';
-import axios from 'axios';
-import network from "../network";
+import { productsApi } from '../lib/api';
 import { useNavigation } from '@react-navigation/native';
 import RNPickerSelect from 'react-native-picker-select';
 import { categories,markets } from "../constants";
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Button, IconContainer } from '../components/ui';
 
 export default function SearchFilterScreen() {
   const [vendors, setVendors] = useState([]);
@@ -20,17 +21,13 @@ export default function SearchFilterScreen() {
   const fetchFilteredProducts = async (text) => {
     setSearchText(text)
     if(searchText){
-      
       try {
-        const response = await axios.get(`${network.serverurl}/Product/SearchProducts/`, {
-          params: {
-            searchText,
-            category: selectedCategory,
-            market: selectedMarket
-          }
+        const data = await productsApi.searchProducts({
+          searchText,
+          category: selectedCategory,
+          market: selectedMarket,
         });
-        setVendors(response.data);
-        
+        setVendors(data);
       } catch (error) {
         console.log('Error fetching filtered products', error);
       }
@@ -52,67 +49,67 @@ export default function SearchFilterScreen() {
   };
 
   return (
-    <SafeAreaView style={{ backgroundColor: 'white', flex: 1 }}>
-      <View style={styles.container}>
-        <View style={styles.searchContainer}>
-          <Icon.Search height="24" width="24" stroke="grey" />
-          <TextInput
-            placeholder="Search products"
-            style={styles.searchInput}
-            value={searchText}
-            onChangeText={text =>fetchFilteredProducts(text)}  
-            // onSubmitEditing={fetchFilteredProducts}
-          />
-          <TouchableOpacity style={styles.marketContainer} onPress={openFilterModal}>
-            
-            <Icon.MapPin height="20" width="20" stroke="gray" />
-            <Text style={{ color: '#718096' }}>
-               {selectedMarket && selectedMarket.length > 8 
-                  ? `${selectedMarket.substring(0, 8)}...` 
-               : selectedMarket || 'All Lahore'}
-            </Text>
-            
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={openFilterModal}
-        >
-          <Icon.Sliders height="20" width="20" strokeWidth={2.5} stroke="white" />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.screen}>
+      <GlassHeader
+        title="Search"
+        bottomSlot={
+          <View style={styles.searchRow}>
+            <View style={styles.searchPill}>
+              <Icon.Search height={20} width={20} stroke={colors.textGray} />
+              <TextInput
+                placeholder="Search products"
+                placeholderTextColor={colors.textGray}
+                style={[typography.bodySm, styles.searchInput]}
+                value={searchText}
+                onChangeText={text =>fetchFilteredProducts(text)}
+              />
+              <TouchableOpacity style={styles.marketBadge} onPress={openFilterModal}>
+                <Icon.MapPin height={16} width={16} stroke={colors.textGray} />
+                <Text style={[typography.label, styles.marketText]}>
+                   {selectedMarket && selectedMarket.length > 8
+                      ? `${selectedMarket.substring(0, 8)}...`
+                   : selectedMarket || 'All Lahore'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <IconContainer variant="header" onPress={openFilterModal} style={styles.filterButton}>
+              <Icon.Sliders height={20} width={20} strokeWidth={2.5} stroke={colors.textPrimary} />
+            </IconContainer>
+          </View>
+        }
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 50 }}
+        contentContainerStyle={styles.listContent}
       >
         {vendors.length > 0 ? (
           vendors.map((vendor) => (
             <TouchableWithoutFeedback key={vendor.ProductID} onPress={() => navigation.navigate('ShopScreen', { vendor })}>
               <View style={styles.vendorContainer}>
                 <View style={styles.imagePlaceholder}>
-                  {vendor.Image ? <Image source={{ uri: vendor.Image }} style={styles.productImage} /> : <Text style={{ textAlign: 'center' }}>No Image</Text>}
+                  {vendor.Image ? <Image source={{ uri: vendor.Image }} style={styles.productImage} /> : <Text style={typography.caption}>No Image</Text>}
                 </View>
                 <View style={styles.vendorInfo}>
-                  <Text style={styles.vendorName}>{vendor.ProductName}</Text>
-                  <Text style={styles.vendorCategory}>{vendor.ProductCategory}</Text>
-                  <Text style={styles.vendorCategory}>{vendor.Vendor.Market}</Text>
-                  <Text style={styles.vendorPrice}>RS {vendor.Price}</Text>
+                  <Text style={[typography.cardTitle, styles.vendorName]}>{vendor.ProductName}</Text>
+                  <Text style={[typography.bodySm, styles.vendorCategory]}>{vendor.ProductCategory}</Text>
+                  <Text style={[typography.bodySm, styles.vendorCategory]}>{vendor.Vendor.Market}</Text>
+                  <Text style={[typography.cardTitle, styles.vendorPrice]}>RS {vendor.Price}</Text>
                 </View>
               </View>
             </TouchableWithoutFeedback>
           ))
         ) : (
-          <Text style={styles.noResults}>No products found</Text>
+          <Text style={[typography.bodySm, styles.noResults]}>No products found</Text>
         )}
       </ScrollView>
 
       <Modal visible={filterModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Filters</Text>
+            <Text style={[typography.headerTitle, styles.modalTitle]}>Filters</Text>
 
-            <Text style={styles.label}>Market</Text>
+            <Text style={[typography.label, styles.label]}>Market</Text>
             <RNPickerSelect
               onValueChange={(value) => setSelectedMarket(value)}
               items={MarketNames.map((market) => ({ label: market, value: market }))}
@@ -120,7 +117,7 @@ export default function SearchFilterScreen() {
               style={pickerSelectStyles}
             />
 
-            <Text style={styles.label}>Category</Text>
+            <Text style={[typography.label, styles.label]}>Category</Text>
             <RNPickerSelect
               onValueChange={(value) => setSelectedCategory(value)}
               items={categoryNames.map((category) => ({ label: category, value: category }))}
@@ -128,181 +125,166 @@ export default function SearchFilterScreen() {
               style={pickerSelectStyles}
             />
 
-            <View style={styles.buttonsContainer}>
-              <TouchableOpacity style={styles.button} onPress={applyFilters}>
-                <Text style={styles.buttonText}>Apply Filters</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearFilters}>
-                <Text style={[styles.buttonText, { color: 'red' }]}>Clear Filters</Text>
-              </TouchableOpacity>
+            <View style={styles.buttonsRow}>
+              <Button variant="secondary" title="Clear Filters" onPress={clearFilters} style={styles.filterActionButton} />
+              <Button title="Apply Filters" onPress={applyFilters} style={styles.filterActionButton} />
             </View>
 
             <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-              <Text style={styles.closeButton}>Close</Text>
+              <Text style={[typography.bodySm, styles.closeButton]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  listContent: {
+    paddingTop: spacing.headerHeight + spacing.space8 + spacing.space6,
+    paddingBottom: spacing.space6,
+  },
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 10,
-    paddingRight: 5,
-    paddingBottom: 8,
-    marginRight: 8,
-    marginTop: 10
   },
-  searchContainer: {
+  searchPill: {
     flexDirection: 'row',
     flex: 1,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
   },
   searchInput: {
-    marginLeft: 8,
+    marginLeft: spacing.space2,
     flex: 1,
+    color: colors.textPrimary,
   },
-  marketContainer: {
+  marketBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 0,
-    paddingLeft: 8,
-    borderLeftWidth: 2,
-    borderLeftColor: '#D1D5DB',
-    
+    paddingLeft: spacing.space2,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.backgroundFaf,
+  },
+  marketText: {
+    color: colors.textGray,
+    marginLeft: spacing.space1,
   },
   filterButton: {
-    backgroundColor: '#007BFF',
-    padding: 12,
-    borderRadius: 9999,
-    marginLeft: 5
+    marginLeft: spacing.space2,
   },
   vendorContainer: {
     flexDirection: 'row',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
-    borderRadius: 10,
-    marginBottom: 10,
-    marginHorizontal: 10,
+    padding: spacing.space4,
+    backgroundColor: colors.backgroundFaf,
+    borderWidth: 1,
+    borderColor: colors.white,
+    borderRadius: radius.lg,
+    marginBottom: spacing.space3,
+    marginHorizontal: spacing.space3,
+    ...shadows.card,
   },
   imagePlaceholder: {
     width: 60,
     height: 60,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 10,
-    marginRight: 15,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    marginRight: spacing.space4,
   },
   vendorInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   vendorName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   vendorCategory: {
-    color: '#6B7280',
-    marginTop: 4,
+    color: colors.textGray,
+    marginTop: spacing.space1,
   },
   vendorPrice: {
-    color: '#10B981',
-    marginTop: 4,
-    fontWeight: 'bold',
+    color: colors.success,
+    marginTop: spacing.space1,
   },
   noResults: {
     textAlign: 'center',
-    marginTop: 20,
-    color: '#6B7280',
+    marginTop: spacing.space5,
+    color: colors.textGray,
   },
   productImage: {
     width: 60,
     height: 60,
-    borderRadius: 10,
+    borderRadius: radius.md,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: spacing.space5,
   },
   modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
+    backgroundColor: colors.white,
+    padding: spacing.space6,
+    borderRadius: radius.xl,
+    width: '100%',
+    ...shadows.modal,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: spacing.space5,
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   label: {
-    fontSize: 16,
-    marginBottom: 10,
+    color: colors.textGray,
+    marginBottom: spacing.space2,
   },
-  buttonsContainer: {
+  buttonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
+    gap: spacing.space3,
+    marginTop: spacing.space4,
   },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 5,
+  filterActionButton: {
     flex: 1,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  clearButton: {
-    backgroundColor: 'transparent',
-    borderColor: 'red',
-    borderWidth: 1,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
   },
   closeButton: {
     textAlign: 'center',
-    color: '#007BFF',
-    fontSize: 16,
-    marginTop: 20,
+    color: colors.primary,
+    marginTop: spacing.space5,
   },
 });
 
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    fontSize: 14,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
     borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 4,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
-    marginBottom: 20,
+    borderColor: colors.white,
+    borderRadius: radius.pill,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
+    paddingRight: 30,
+    marginBottom: spacing.space4,
   },
   inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'purple',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
-    marginBottom: 20,
+    fontSize: 14,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space2,
+    borderWidth: 1,
+    borderColor: colors.white,
+    borderRadius: radius.pill,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
+    paddingRight: 30,
+    marginBottom: spacing.space4,
   },
 });

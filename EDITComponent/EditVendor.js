@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import axios from 'axios';
-import { themeColors } from '../theme'; // Assuming you have themeColors for consistent styling
-import network from '../network';
+import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
+import { vendorsApi } from '../lib/api';
+import { colors, radius, spacing, typography } from '../theme';
+import { Card, Button, ModalAlert } from '../components/ui';
 
 const EditVendor = ({ route, navigation }) => {
   const { VendorID } = route.params; // Fetch the VendorID from route params
@@ -15,13 +15,15 @@ const EditVendor = ({ route, navigation }) => {
   const [Contact, setContact] = useState('');
   const [Email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
+
+  const closeAlert = () => setAlert((a) => ({ ...a, visible: false }));
 
   // Fetch vendor details based on VendorID
   useEffect(() => {
     const fetchVendorDetails = async () => {
       try {
-        const response = await axios.get(`${network.serverurl}/vendor/${VendorID}`);
-        const vendor = response.data;
+        const vendor = await vendorsApi.getVendorById(VendorID);
 
         // Set vendor details into state
         setVendorBusinessName(vendor.BusinessName || '');
@@ -33,7 +35,7 @@ const EditVendor = ({ route, navigation }) => {
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to fetch vendor details:', error);
-        Alert.alert('Error', 'Failed to fetch vendor details');
+        setAlert({ visible: true, title: 'Error', message: 'Failed to fetch vendor details', onConfirm: closeAlert });
         setIsLoading(false);
       }
     };
@@ -56,73 +58,92 @@ const EditVendor = ({ route, navigation }) => {
       };
 
       // Send updated data to backend
-      await axios.put(`${network.serverurl}/vendor/update/${VendorID}`, updatedVendor);
+      await vendorsApi.updateVendor(VendorID, updatedVendor);
 
-      Alert.alert('Success', 'Vendor updated successfully');
-      navigation.goBack(); // Go back to the previous screen
+      setAlert({
+        visible: true,
+        title: 'Success',
+        message: 'Vendor updated successfully',
+        onConfirm: () => {
+          closeAlert();
+          navigation.goBack();
+        },
+      });
     } catch (error) {
       console.error('Failed to update vendor:', error);
-      Alert.alert('Error', 'Failed to update vendor');
+      setAlert({ visible: true, title: 'Error', message: 'Failed to update vendor', onConfirm: closeAlert });
     }
   };
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={[typography.body, styles.loadingText]}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Edit Vendor</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={[typography.display, styles.title]}>Edit Vendor</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Vendor Name"
-        value={VendorBusinessName}
-        onChangeText={setVendorBusinessName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Market"
-        value={market}
-        onChangeText={setMarket}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={Email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Contact"
-        value={Contact}
-        onChangeText={setContact}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Company Address"
-        value={CompanyAddress}
-        onChangeText={setCompanyAddress}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="City"
-        value={City}
-        onChangeText={setCity}
-      />
+      <Card style={styles.formCard}>
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Vendor Name"
+          placeholderTextColor={colors.textGray}
+          value={VendorBusinessName}
+          onChangeText={setVendorBusinessName}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Market"
+          placeholderTextColor={colors.textGray}
+          value={market}
+          onChangeText={setMarket}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Email"
+          placeholderTextColor={colors.textGray}
+          value={Email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Contact"
+          placeholderTextColor={colors.textGray}
+          value={Contact}
+          onChangeText={setContact}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="Company Address"
+          placeholderTextColor={colors.textGray}
+          value={CompanyAddress}
+          onChangeText={setCompanyAddress}
+        />
+        <TextInput
+          style={[typography.body, styles.input]}
+          placeholder="City"
+          placeholderTextColor={colors.textGray}
+          value={City}
+          onChangeText={setCity}
+        />
 
-      <TouchableOpacity style={styles.saveButton} onPress={saveVendorDetails}>
-        <Text style={styles.buttonText}>Save Changes</Text>
-      </TouchableOpacity>
+        <Button title="Save Changes" onPress={saveVendorDetails} style={styles.button} />
+        <Button variant="secondary" title="Cancel" onPress={() => navigation.goBack()} style={styles.button} />
+      </Card>
 
-      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
+      <ModalAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        confirmLabel="OK"
+        onConfirm={alert.onConfirm}
+        onRequestClose={closeAlert}
+      />
+    </ScrollView>
   );
 };
 
@@ -131,51 +152,38 @@ export default EditVendor;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: themeColors.bgColor(0.1),
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.space5,
+    paddingTop: spacing.space8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: themeColors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.space5,
   },
+  formCard: {},
   input: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    fontSize: 16,
+    backgroundColor: colors.backgroundFaf,
+    height: spacing.touchTarget,
+    paddingHorizontal: spacing.space4,
+    borderRadius: radius.pill,
+    marginBottom: spacing.space3,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: colors.white,
+    color: colors.textPrimary,
   },
-  saveButton: {
-    backgroundColor: themeColors.primary,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  cancelButton: {
-    backgroundColor: 'gray',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  button: {
+    marginTop: spacing.space2,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background,
   },
   loadingText: {
-    fontSize: 18,
-    color: themeColors.text,
+    color: colors.textGray,
   },
 });

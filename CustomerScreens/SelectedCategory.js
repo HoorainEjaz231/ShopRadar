@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator,TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
-import axios from 'axios';
+import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { themeColors } from '../theme'; // Adjust this if necessary
-import network from '../network';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { GlassHeader, Card } from '../components/ui';
+import { vendorsApi } from '../lib/api';
 import Categories from '../CustomerComponent/categories';
-import * as Icon from "react-native-feather"; // Import Feather icons
 const SelectedCategoryScreen = ({navigation}) => {
   const route = useRoute();
   const item = route.params;
@@ -17,10 +16,8 @@ const SelectedCategoryScreen = ({navigation}) => {
     console.log(route.params)
     const fetchVendors = async () => {
       try {
-        const response = await axios.get(network.serverurl + "/vendor/vendors");
-        console.log(response.data)
-        const filteredVendors = response.data.filter(vendor => vendor.ShopCategory === item);
-        console.log(filteredVendors)
+        const data = await vendorsApi.getVendors();
+        const filteredVendors = data.filter(vendor => vendor.ShopCategory === item);
         setVendors(filteredVendors);
         setLoading(false);
       } catch (error) {
@@ -33,122 +30,100 @@ const SelectedCategoryScreen = ({navigation}) => {
   }, [item]);
 
   if (loading) {
-    return <ActivityIndicator size="large" color={themeColors.primary} style={styles.loader} />;
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+      </View>
+    );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.headerText,{flexDirection:'row'}]}>
-      <TouchableOpacity
-            onPress={() => navigation.goBack()}
-             style={{paddingTop:5}}
-          >
-            <Icon.ArrowLeft strokeWidth={3} stroke={themeColors.bgColor(1)} />
-          </TouchableOpacity>
-      {/* <Image source={{ uri: image.uri }} style={styles.headerImage} /> */}
-      <Text style={{fontSize: 24, fontWeight: 'bold',paddingLeft:20}}>{item}</Text>
-      </View>
-      
-      <Categories />
-      {vendors.length > 0 ? (
-        vendors.map(vendor => (
-          <TouchableWithoutFeedback key={vendor.VendorID} onPress={()=>navigation.navigate('ShopScreen',    {vendor} )}>
-            <View  style={styles.vendorCard}>
-            <Image style={styles.vendorImage} source={{ uri: vendor.Image }} />
-            <View style={styles.vendorDetails}>
-              <Text style={styles.vendorName}>{vendor.BusinessName}</Text>
-              <View style={styles.ratingContainer}>
-                <Image 
-                  style={styles.ratingImage} 
-                  source={require("../assets/star-icon-19125.png")} 
-                />
-                <Text style={styles.ratingText}>
-                  <Text style={styles.ratingValue}>{vendor.AverageRating}</Text>
-                  <Text style={styles.ratingCount}> ({vendor.RatingCount}) Reviews</Text>
-                </Text>
+    <View style={styles.container}>
+      <GlassHeader title={item} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Categories />
+        {vendors.length > 0 ? (
+          vendors.map(vendor => (
+            <TouchableWithoutFeedback key={vendor.VendorID} onPress={()=>navigation.navigate('ShopScreen',    {vendor} )}>
+              <Card style={styles.vendorCard} contentStyle={styles.vendorCardContent}>
+              <Image style={styles.vendorImage} source={{ uri: vendor.Image }} />
+              <View style={styles.vendorDetails}>
+                <Text style={[typography.cardTitle, styles.vendorName]}>{vendor.BusinessName}</Text>
+                <View style={styles.ratingContainer}>
+                  <Image
+                    style={styles.ratingImage}
+                    source={require("../assets/star-icon-19125.png")}
+                  />
+                  <Text style={typography.caption}>
+                    <Text style={styles.ratingValue}>{vendor.AverageRating}</Text>
+                    <Text style={styles.ratingCount}> ({vendor.RatingCount}) Reviews</Text>
+                  </Text>
+                </View>
+                <Text style={[typography.label, styles.vendorMarket]}>{vendor.Market}</Text>
               </View>
-              <Text style={styles.vendorMarket}>{vendor.Market}</Text>
-            </View>
-          </View>
-          </TouchableWithoutFeedback>
-        ))
-      ) : (
-        <Text style={styles.noVendors}>No vendors available</Text>
-      )}
-    </ScrollView>
+            </Card>
+            </TouchableWithoutFeedback>
+          ))
+        ) : (
+          <Text style={[typography.bodySm, styles.noVendors]}>No vendors available</Text>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.background,
   },
-  headerImage: {
-    width: '100%',
-    height: 200,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
-  headerText: {
-    
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  content: {
+    paddingTop: spacing.headerHeight + spacing.space8,
+    paddingBottom: spacing.space6,
   },
   vendorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    margin: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 5,
+    margin: spacing.space3,
+    overflow: 'hidden',
+  },
+  vendorCardContent: {
+    padding: 0,
   },
   vendorImage: {
     width: '100%',
     height: 120,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
   },
   vendorDetails: {
-    padding: 12,
+    padding: spacing.space3,
   },
   vendorName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: colors.textPrimary,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: spacing.space1,
   },
   ratingImage: {
     width: 16,
     height: 16,
-  },
-  ratingText: {
-    fontSize: 14,
-    marginLeft: 4,
+    marginRight: spacing.space1,
   },
   ratingValue: {
-    color: '#047857',
+    color: colors.success,
   },
   ratingCount: {
-    color: '#4B5563',
+    color: colors.textGray,
   },
   vendorMarket: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginTop: 4,
+    color: colors.textGray,
+    marginTop: spacing.space1,
   },
   noVendors: {
     textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
-    color: '#4B5563',
+    marginTop: spacing.space5,
+    color: colors.textGray,
   },
   loader: {
     flex: 1,

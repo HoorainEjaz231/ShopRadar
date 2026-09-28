@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Pressable, RefreshControl, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import network from '../network';
+import { supabase } from '../lib/supabase';
+import { vendorsApi, ridersApi } from '../lib/api';
+import * as Icon from 'react-native-feather';
+import { colors, radius, spacing, typography, shadows } from '../theme';
+import { Card, IconContainer } from '../components/ui';
 const ProfileScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [profileData, setProfileData] = useState(null);
@@ -23,7 +26,7 @@ const ProfileScreen = ({ navigation }) => {
         RiderData(JSON.parse(userData))
       }
 
-      
+
     } catch (error) {
       console.error('Error fetching customer ID', error);
     }
@@ -32,9 +35,8 @@ const ProfileScreen = ({ navigation }) => {
   const VendorData = async(userData) => {
    try{
     if(userData.VendorID){
-      const response = await axios.get(network.serverurl + "/Vendor/" + userData.VendorID);
-    const Vendor = response.data;
-    setVendorInfo(Vendor);
+      const Vendor = await vendorsApi.getVendorById(userData.VendorID);
+      setVendorInfo(Vendor);
     }
    }catch (error){
       console.error('Error Fetching Vendor ID', error)
@@ -45,11 +47,8 @@ const ProfileScreen = ({ navigation }) => {
   const RiderData = async (userData) =>{
     try{
       if(userData.RiderID){
-        const response = await axios.get(network.serverurl + "/Rider/" + userData.RiderID);
-      const Rider = response.data;
-      setRiderInfo(Rider);
-    
-     
+        const Rider = await ridersApi.getRiderById(userData.RiderID);
+        setRiderInfo(Rider);
       }
      }catch (error){
         console.error('Error Fetching Vendor ID', error)
@@ -58,6 +57,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
+      await supabase.auth.signOut();
       await AsyncStorage.removeItem('user');
       navigation.reset({
         index: 0,
@@ -87,15 +87,16 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={styles.screen}
+      contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <View style={styles.container}>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setModalVisible(true)}>
-          <Text style={styles.menuText}>⋮</Text>
-        </TouchableOpacity>
+        <IconContainer variant="header" onPress={() => setModalVisible(true)} style={styles.menuButton}>
+          <Icon.MoreVertical width={20} height={20} stroke={colors.textPrimary} />
+        </IconContainer>
 
         <Modal
           transparent={true}
@@ -106,14 +107,14 @@ const ProfileScreen = ({ navigation }) => {
           <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
             <View style={styles.modalContent}>
               <TouchableOpacity onPress={handleLogout}>
-                <Text style={[styles.menuOption,{color:'red'}]}>Logout</Text>
+                <Text style={[typography.body, styles.menuOption, styles.menuOptionDanger]}>Logout</Text>
               </TouchableOpacity>
               {
                 profileData?<TouchableOpacity onPress={()=>{
                   setModalVisible(false)
                   navigation.navigate('EditCustomer',{customer: profileData})
                 }}>
-                <Text style={styles.menuOption}>Edit Profile Info</Text>
+                <Text style={[typography.body, styles.menuOption]}>Edit Profile Info</Text>
               </TouchableOpacity>:null
               }
               {
@@ -121,10 +122,10 @@ const ProfileScreen = ({ navigation }) => {
                   setModalVisible(false)
                   navigation.navigate('EditRider',{RiderID: RiderInfo.RiderID})
                 }}>
-                <Text style={styles.menuOption}>Edit Rider Info</Text>
+                <Text style={[typography.body, styles.menuOption]}>Edit Rider Info</Text>
               </TouchableOpacity>
                 :<TouchableOpacity onPress={handleRegisterAsRider}>
-                <Text style={styles.menuOption}>Register as Rider</Text>
+                <Text style={[typography.body, styles.menuOption]}>Register as Rider</Text>
               </TouchableOpacity>
               }
              {
@@ -132,10 +133,10 @@ const ProfileScreen = ({ navigation }) => {
                 setModalVisible(false)
                 navigation.navigate('EditVendor',{VendorID: VendorInfo.VendorID})
               }}>
-              <Text style={styles.menuOption}>Edit Vendor Info</Text>
+              <Text style={[typography.body, styles.menuOption]}>Edit Vendor Info</Text>
             </TouchableOpacity>
               : <TouchableOpacity onPress={handleRegisterAsVendor}>
-              <Text style={styles.menuOption}>Register as Vendor</Text>
+              <Text style={[typography.body, styles.menuOption]}>Register as Vendor</Text>
             </TouchableOpacity>
              }
             </View>
@@ -144,68 +145,68 @@ const ProfileScreen = ({ navigation }) => {
 
         <View style={styles.header}>
           <Image source={{ uri: 'https://i.sstatic.net/l60Hf.png' }} style={styles.profileImage} />
-          <Text style={styles.fullName}>{profileData ? profileData.FullName : 'Fetching Data'}</Text>
+          <Text style={[typography.display, styles.fullName]}>{profileData ? profileData.FullName : 'Fetching Data'}</Text>
         </View>
 
         {profileData && (
-          <View style={styles.profileInfo}>
-            <Text style={styles.label}>Email:</Text>
-            <Text style={styles.value}>{profileData.Email}</Text>
+          <Card style={styles.profileInfo}>
+            <Text style={[typography.label, styles.label]}>Email:</Text>
+            <Text style={[typography.body, styles.value]}>{profileData.Email}</Text>
 
-            <Text style={styles.label}>Phone:</Text>
-            <Text style={styles.value}>{profileData.Phone}</Text>
+            <Text style={[typography.label, styles.label]}>Phone:</Text>
+            <Text style={[typography.body, styles.value]}>{profileData.Phone}</Text>
 
-            <Text style={styles.label}>Address:</Text>
-            <Text style={styles.value}>{profileData.Address}</Text>
+            <Text style={[typography.label, styles.label]}>Address:</Text>
+            <Text style={[typography.body, styles.value]}>{profileData.Address}</Text>
 
-            <Text style={styles.label}>City:</Text>
-            <Text style={styles.value}>{profileData.City}</Text>
+            <Text style={[typography.label, styles.label]}>City:</Text>
+            <Text style={[typography.body, styles.value]}>{profileData.City}</Text>
 
-            <Text style={styles.label}>Customer ID:</Text>
-            <Text style={styles.value}>{profileData.CustomerID}</Text>
-          </View>
+            <Text style={[typography.label, styles.label]}>Customer ID:</Text>
+            <Text style={[typography.body, styles.value]}>{profileData.CustomerID}</Text>
+          </Card>
         )}
 
         {VendorInfo && (
-          <View style={[styles.profileInfo,{marginTop:30}]}>
-            <Text style={styles.HeaderText}>Business Info</Text>
-            <Text style={styles.label}>Business Name:</Text>
-            <Text style={styles.value}>{VendorInfo.BusinessName}</Text>
+          <Card style={[styles.profileInfo, styles.sectionSpacing]}>
+            <Text style={[typography.sectionTitle, styles.headerText]}>Business Info</Text>
+            <Text style={[typography.label, styles.label]}>Business Name:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.BusinessName}</Text>
 
-            <Text style={styles.label}>Email:</Text>
-            <Text style={styles.value}>{VendorInfo.Email}</Text>
+            <Text style={[typography.label, styles.label]}>Email:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.Email}</Text>
 
-            <Text style={styles.label}>Address:</Text>
-            <Text style={styles.value}>{VendorInfo.CompanyAddress}</Text>
+            <Text style={[typography.label, styles.label]}>Address:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.CompanyAddress}</Text>
 
-            <Text style={styles.label}>Market:</Text>
-            <Text style={styles.value}>{VendorInfo.Market}</Text>
+            <Text style={[typography.label, styles.label]}>Market:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.Market}</Text>
 
-            <Text style={styles.label}>Shop Category:</Text>
-            <Text style={styles.value}>{VendorInfo.ShopCategory}</Text>
+            <Text style={[typography.label, styles.label]}>Shop Category:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.ShopCategory}</Text>
 
-            <Text style={styles.label}>Vendor ID:</Text>
-            <Text style={styles.value}>{VendorInfo.VendorID}</Text>
-          </View>
+            <Text style={[typography.label, styles.label]}>Vendor ID:</Text>
+            <Text style={[typography.body, styles.value]}>{VendorInfo.VendorID}</Text>
+          </Card>
         )}
 
       {RiderInfo && (
-          <View style={[styles.profileInfo,{marginTop:30}]}>
-            <Text style={styles.HeaderText}>Rider Info</Text>
-            
+          <Card style={[styles.profileInfo, styles.sectionSpacing]}>
+            <Text style={[typography.sectionTitle, styles.headerText]}>Rider Info</Text>
 
-            <Text style={styles.label}>Bike Number:</Text>
-            <Text style={styles.value}>{RiderInfo.BikeNumber}</Text>
 
-            <Text style={styles.label}>Contact:</Text>
-            <Text style={styles.value}>{RiderInfo.Contact}</Text>
+            <Text style={[typography.label, styles.label]}>Bike Number:</Text>
+            <Text style={[typography.body, styles.value]}>{RiderInfo.BikeNumber}</Text>
 
-            <Text style={styles.label}>City:</Text>
-            <Text style={styles.value}>{RiderInfo.City}</Text>
+            <Text style={[typography.label, styles.label]}>Contact:</Text>
+            <Text style={[typography.body, styles.value]}>{RiderInfo.Contact}</Text>
 
-            <Text style={styles.label}>Rider ID:</Text>
-            <Text style={styles.value}>{RiderInfo.RiderID}</Text>
-          </View>
+            <Text style={[typography.label, styles.label]}>City:</Text>
+            <Text style={[typography.body, styles.value]}>{RiderInfo.City}</Text>
+
+            <Text style={[typography.label, styles.label]}>Rider ID:</Text>
+            <Text style={[typography.body, styles.value]}>{RiderInfo.RiderID}</Text>
+          </Card>
         )}
       </View>
     </ScrollView>
@@ -213,75 +214,73 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingTop: spacing.space8,
+  },
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
+    padding: spacing.space5,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 20,
+    marginBottom: spacing.space5,
+    marginTop: spacing.space5,
   },
   profileImage: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    marginBottom: 10,
+    borderRadius: radius.pill,
+    marginBottom: spacing.space3,
+    borderWidth: 1,
+    borderColor: colors.white,
   },
   fullName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
-  profileInfo: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    elevation: 2,
-  },
+  profileInfo: {},
   label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 4,
+    color: colors.textGray,
+    marginBottom: spacing.space1,
   },
   value: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 10,
+    color: colors.textPrimary,
+    marginBottom: spacing.space3,
+  },
+  sectionSpacing: {
+    marginTop: spacing.space6,
   },
   menuButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 10,
-  },
-  menuText: {
-    fontSize: 24,
+    top: spacing.space3,
+    right: spacing.space3,
+    zIndex: 1,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: colors.white,
+    padding: spacing.space5,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
   },
   menuOption: {
-    fontSize: 18,
-    padding: 10,
+    padding: spacing.space3,
+    color: colors.textPrimary,
   },
-  HeaderText:{
-    fontSize:20,
-    fontWeight:'800',
+  menuOptionDanger: {
+    color: colors.danger,
+  },
+  headerText:{
     textAlign:'center',
-    color:'semi-black',
-    marginBottom:20
+    color: colors.textPrimary,
+    marginBottom: spacing.space5,
   }
 });
 

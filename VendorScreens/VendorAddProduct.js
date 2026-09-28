@@ -1,13 +1,13 @@
 import React, { useState ,useEffect} from 'react';
-import { View, TextInput, Button, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
+import { View, TextInput, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
-import { storage } from '../Firebase/config';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import network from '../network';
+import { storageApi, productsApi } from '../lib/api';
 import { categories ,markets } from "../constants";
 const categoryNames = categories.map(category => category.name);
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, radius, spacing, typography } from '../theme';
+import { Card, Button } from '../components/ui';
 
 
 
@@ -16,7 +16,7 @@ export default function AddProductScreen() {
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
- 
+
   const [discount, setDiscount] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
@@ -26,12 +26,12 @@ export default function AddProductScreen() {
 
   useEffect(()=>{
     const UserInfo = async () => {
-  
+
     try{
       const UserData = await AsyncStorage.getItem('user')
       const user = JSON.parse(UserData)
-      setuser(JSON.stringify(user.VendorID))
-    
+      setuser(user.VendorID)
+
     }catch(error){
       console.log(error)
     }
@@ -60,30 +60,14 @@ export default function AddProductScreen() {
 
   const uploadImage = async () => {
     setUploading(true);
-    const response = await fetch(image);
-    const blob = await response.blob();
-    const storageRef = ref(storage, `images/${Date.now()}`);
-    const uploadTask = uploadBytesResumable(storageRef, blob);
-  
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        console.log(
-          `Progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%`
-        );
-      },
-      (error) => {
-        console.error(error);
-        setUploading(false);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          console.log('File available at', downloadURL);
-          handleAddProduct(downloadURL);
-          setUploading(false);
-        });
-      }
-    );
+    try {
+      const url = await storageApi.uploadImage(image, 'products');
+      await handleAddProduct(url);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleAddProduct = async (url) => {
@@ -97,16 +81,8 @@ export default function AddProductScreen() {
       ProductDescription:description,
     };
 
-
     try {
-      const response = await fetch(network.serverurl+"/Product/", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(productData),
-      });
-      const data = await response.json();
+      const data = await productsApi.createProduct(productData);
       console.log(data);
       setCategory("")
       setDescription("")
@@ -114,19 +90,18 @@ export default function AddProductScreen() {
       setImage(null)
       setPrice("")
       setProductName("")
-
-     
-
     } catch (error) {
       console.error(error);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Card style={styles.formCard}>
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Product Name"
+        placeholderTextColor={colors.textGray}
         value={productName}
         onChangeText={setProductName}
       />
@@ -138,8 +113,9 @@ export default function AddProductScreen() {
               style={pickerSelectStyles}
             />
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Price"
+        placeholderTextColor={colors.textGray}
         value={price}
         onChangeText={setPrice}
         keyboardType="numeric"
@@ -148,24 +124,27 @@ export default function AddProductScreen() {
         {image ? (
           <Image source={{ uri: image }} style={styles.image} />
         ) : (
-          <Text style={styles.imagePlaceholder}>Select Image</Text>
+          <Text style={[typography.bodySm, styles.imagePlaceholder]}>Select Image</Text>
         )}
       </TouchableOpacity>
       <TextInput
-        style={styles.input}
+        style={[typography.body, styles.input]}
         placeholder="Discount %"
+        placeholderTextColor={colors.textGray}
         value={discount}
         onChangeText={setDiscount}
         keyboardType="numeric"
       />
       <TextInput
-        style={[styles.input, styles.textArea]}
+        style={[typography.body, styles.input, styles.textArea]}
         placeholder="Product Description"
+        placeholderTextColor={colors.textGray}
         value={description}
         onChangeText={setDescription}
         multiline
       />
-      <Button title="Add Product" onPress={uploadImage} />
+      <Button title="Add Product" onPress={uploadImage} style={styles.submitButton} />
+      </Card>
     </ScrollView>
   );
 }
@@ -173,56 +152,74 @@ export default function AddProductScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
+  content: {
+    paddingHorizontal: spacing.space5,
+    paddingTop: spacing.space8,
+    paddingBottom: spacing.space8,
+  },
+  formCard: {},
   input: {
-    height: 40,
-    borderColor: '#CCCCCC',
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.backgroundFaf,
+    marginBottom: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    color: colors.textPrimary,
   },
   textArea: {
     height: 100,
+    borderRadius: radius.md,
     textAlignVertical: 'top',
+    paddingTop: spacing.space3,
   },
   imageContainer: {
     alignItems: 'center',
-    marginVertical: 10,
-    padding: 10,
-    borderColor: '#CCCCCC',
+    justifyContent: 'center',
+    marginVertical: spacing.space3,
+    padding: spacing.space3,
+    borderColor: colors.white,
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: radius.md,
+    backgroundColor: colors.backgroundFaf,
   },
   image: {
     width: 100,
     height: 100,
+    borderRadius: radius.md,
   },
   imagePlaceholder: {
-    color: '#CCCCCC',
+    color: colors.textGray,
+  },
+  submitButton: {
+    marginTop: spacing.space2,
   },
 });
 
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
-    height: 40,
-    borderColor: '#CCCCCC',
+    fontSize: 14,
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    color: '#333333',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.space4,
+    marginBottom: spacing.space3,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
   },
   inputAndroid: {
-    height: 40,
-    borderColor: '#CCCCCC',
+    fontSize: 14,
+    height: spacing.touchTarget,
+    borderColor: colors.white,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    color: '#333333',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.space4,
+    marginBottom: spacing.space3,
+    color: colors.textPrimary,
+    backgroundColor: colors.backgroundFaf,
   },
 });
