@@ -129,7 +129,6 @@ export default function DrawerNav() {
 
   return (
     <Drawer.Navigator
-      useLegacyImplementation={false}
       drawerContent={props => (
         <CustomDrawerContent {...props} currentMode={currentMode} setCurrentMode={setCurrentMode} />
       )}
